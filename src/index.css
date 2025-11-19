@@ -1,0 +1,23 @@
+/*
+ * This file is intended to be processed by Tailwind/PostCSS.
+ * It contains all custom global and base styles.
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Set base font */
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+/* Accessible font override */
+.font-accessible {
+  font-family: 'Lexend', sans-serif;
+}
+
+/* Base colors for dark mode. */
+.dark body {
+  color: #f1f5f9; /* dark:text-slate-100 */
+}

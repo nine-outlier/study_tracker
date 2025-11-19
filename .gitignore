@@ -1,0 +1,42 @@
+# Node dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Output folders
+dist/
+build/
+out/
+release/
+
+# Electron junk
+*.asar
+*.asar.unpacked/
+
+# Webpack
+.cache/
+.eslintcache
+
+# Logs
+logs/
+*.log
+*.gz
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor junk
+.vscode/
+.idea/
+*.swp
+
+# Local user data saved by your app
+*.json
+userData.json
+userdata.json
+
+# Don’t upload your electron-generated config
+*.asar
