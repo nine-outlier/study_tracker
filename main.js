@@ -19,7 +19,6 @@ function createWindow() {
 
   mainWindow.loadFile('index.html');
   // Optional: Open DevTools for debugging
-  mainWindow.webContents.openDevTools();
 }
 
 app.whenReady().then(() => {
