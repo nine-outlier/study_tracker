@@ -1,4 +1,3 @@
-// FILE: src/components/Modals/DataEntryModal.jsx
 import React, { useState, useEffect } from 'react';
 import DataForm from '../DataForms/DataForm';
 import StudySessionForm from '../DataForms/StudySessionForm';
@@ -8,18 +7,6 @@ import UncategorizedDataForm from '../DataForms/UncategorizedDataForm';
 
 /**
  * DataEntryModal: Main modal for all data input, using tabs.
- *
- * Expected props (align this with App.jsx):
- * - isVisible: boolean (controls mount/visibility)
- * - activeCert: string (id/name of the current certification)
- * - certData: object (tests, sessions, domains for activeCert)
- * - uncategorizedEntries: array
- * - existingDomains: string[] (domain names)
- * - onAddTest, onAddStudySession, onAddDomain, onDeleteDomain
- * - onDeleteTest, onDeleteStudySession
- * - onReassignData
- * - onClose: () => void
- * - showToast: (message: string, isError?: boolean) => void
  */
 const DataEntryModal = ({
   isVisible,
@@ -60,7 +47,7 @@ const DataEntryModal = ({
   // Helper for tab classes
   const getTabClass = (tabName) => {
     const isActive = formType === tabName;
-    return `w-full px-3 py-2 rounded-md text-sm transition-colors ${
+    return `whitespace-nowrap px-3 py-2 rounded-md text-sm transition-colors ${
       isActive
         ? 'font-semibold bg-white text-slate-900 dark:bg-gray-800 dark:text-slate-100 shadow-sm'
         : 'text-slate-600 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-gray-800'
@@ -81,13 +68,13 @@ const DataEntryModal = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Tabs */}
-        <div className="flex space-x-1 bg-slate-100 rounded-lg p-1 mb-6 dark:bg-gray-950">
+        <div className="flex space-x-1 bg-slate-100 rounded-lg p-1 mb-6 dark:bg-gray-950 overflow-x-auto">
           <button
             type="button"
             onClick={() => setFormType('data')}
             className={getTabClass('data')}
           >
-            Data
+            Add Test
           </button>
           <button
             type="button"
@@ -127,16 +114,16 @@ const DataEntryModal = ({
         <div className="max-h-[70vh] overflow-y-auto pr-2">
           {formType === 'data' && (
             <DataForm
-              activeCert={activeCert}
               existingDomains={activeDomainNames}
               onAddTest={onAddTest}
+              onClose={handleClose}
               showToast={showToast}
             />
           )}
 
           {formType === 'studySession' && (
             <StudySessionForm
-              activeCert={activeCert}
+              existingDomains={activeDomainNames}
               onAddStudySession={onAddStudySession}
               showToast={showToast}
             />
@@ -144,7 +131,6 @@ const DataEntryModal = ({
 
           {formType === 'domains' && (
             <DomainForm
-              activeCert={activeCert}
               existingDomains={activeDomainNames}
               onAddDomain={onAddDomain}
               onDeleteDomain={onDeleteDomain}
@@ -154,7 +140,6 @@ const DataEntryModal = ({
 
           {formType === 'edit' && (
             <ReviewDataForm
-              activeCert={activeCert}
               certData={certData}
               onDeleteTest={onDeleteTest}
               onDeleteStudySession={onDeleteStudySession}
@@ -163,7 +148,6 @@ const DataEntryModal = ({
 
           {formType === 'uncategorized' && (
             <UncategorizedDataForm
-              activeCert={activeCert}
               uncategorizedEntries={uncategorizedEntries}
               existingDomains={activeDomainNames}
               onReassignData={onReassignData}

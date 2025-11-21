@@ -2,9 +2,16 @@ import React from 'react';
 import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from 'recharts';
 
 const MasteryChart = ({ data, isWeighted, appSettings }) => {
-    // Thematic colors for chart text
-    const pieLabelFill = appSettings.darkMode ? '#e2e8f0' : '#1e293b'; // White / Slate 800
-    const legendTextFill = appSettings.darkMode ? '#94a3b8' : '#334155'; // Dim Gray / Slate 700
+    // FIX: High contrast colors for Dark Mode text
+    // Using Slate-50 (#f8fafc) for labels on dark mode so they pop against the dark card
+    const pieLabelFill = appSettings.darkMode ? '#f8fafc' : '#1e293b'; 
+    // Using Slate-300 (#cbd5e1) for legend text
+    const legendTextFill = appSettings.darkMode ? '#cbd5e1' : '#334155'; 
+
+    // Tooltip Colors - FIX: Explicitly define text color for dark mode
+    const tooltipBg = appSettings.darkMode ? '#1f2937' : '#ffffff';
+    const tooltipBorder = appSettings.darkMode ? '#374151' : '#e2e8f0';
+    const tooltipText = appSettings.darkMode ? '#f3f4f6' : '#111827'; // White text on dark bg
 
     return (
         <div className="bg-white rounded-xl shadow-sm ring-1 ring-slate-200 p-4 sm:p-6 dark:bg-gray-900 dark:ring-gray-800">
@@ -27,7 +34,12 @@ const MasteryChart = ({ data, isWeighted, appSettings }) => {
                         fill={pieLabelFill} 
                     >
                         {data.map((entry) => (
-                            <Cell key={`cell-${entry.label}`} fill={entry.color} />
+                            <Cell 
+                                key={`cell-${entry.label}`} 
+                                fill={entry.color} 
+                                stroke={appSettings.darkMode ? '#111827' : '#ffffff'} // Dark stroke in dark mode to separate slices
+                                strokeWidth={2}
+                            />
                         ))}
                     </Pie>
                     <Legend 
@@ -39,6 +51,15 @@ const MasteryChart = ({ data, isWeighted, appSettings }) => {
                     />
                     <Tooltip
                         formatter={(value, name, props) => [`${value} domains (${props.payload.percentage}%)`, props.payload.label]}
+                        contentStyle={{ 
+                            backgroundColor: tooltipBg,
+                            borderColor: tooltipBorder,
+                            color: tooltipText,
+                            borderRadius: '0.5rem'
+                        }}
+                        // FIX: Force item and label text color to match theme
+                        itemStyle={{ color: tooltipText }}
+                        labelStyle={{ color: tooltipText, fontWeight: 'bold' }}
                     />
                 </PieChart>
             </ResponsiveContainer>

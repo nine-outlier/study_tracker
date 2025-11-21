@@ -16,11 +16,11 @@ const ConfirmModal = ({ title, message, onConfirm, onCancel, isVisible }) => {
 
     return (
         <div 
-            className={`modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70 backdrop-blur-sm ${show ? 'opacity-100' : 'opacity-0'}`} 
+            className={`fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70 backdrop-blur-sm transition-opacity duration-200 ${show ? 'opacity-100' : 'opacity-0'}`} 
             onClick={onCancel}
         >
             <div 
-                className={`modal-content bg-white rounded-xl shadow-2xl p-6 w-full max-w-md m-4 dark:bg-gray-900 dark:ring-gray-800 ${show ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
+                className={`bg-white rounded-xl shadow-2xl p-6 w-full max-w-md m-4 dark:bg-gray-900 dark:ring-gray-800 transform transition-all duration-200 ${show ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
                 onClick={(e) => e.stopPropagation()}
             >
                 <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{title}</h2>

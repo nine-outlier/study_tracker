@@ -2,8 +2,11 @@
 
 export const config = {
     MASTERY_LABELS: {
-        'Critical': 'Critical', 'Weak': 'Weak', 'Developing': 'Developing',
-        'Strong': 'Strong', 'Mastered': 'Master-ed'
+        'Critical': 'Critical', 
+        'Weak': 'Weak', 
+        'Developing': 'Developing',
+        'Strong': 'Strong', 
+        'Mastered': 'Master-ed'
     },
     PASSING_SCORE: 80,
     MIN_ATTEMPTS_FOR_MASTERY: 2,
@@ -34,4 +37,4 @@ export const DEFAULT_SETTINGS = {
     maxWidth: 'max-w-7xl',
     colorblindMode: false,
     darkMode: false,
-}
+};

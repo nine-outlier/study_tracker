@@ -2,10 +2,22 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- 
+      CSP Configuration:
+      - default-src 'self': Restrict everything to local by default.
+      - script-src 'self': Allow local scripts (bundle.js).
+      - style-src 'self' 'unsafe-inline' https://fonts.googleapis.com: Allow local styles, inline styles (Tailwind), and Google Fonts CSS.
+      - font-src 'self' https://fonts.gstatic.com: Allow local fonts and Google Fonts files.
+      - img-src 'self' data: : Allow local images and chart SVGs.
+    -->
+    <meta 
+      http-equiv="Content-Security-Policy" 
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:;"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Certification Tracker</title>
 
-    <!-- Fonts (Inter & Lexend), same as your HTML version -->
+    <!-- Fonts (Inter & Lexend) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

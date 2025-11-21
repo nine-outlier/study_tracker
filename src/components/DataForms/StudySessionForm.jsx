@@ -1,14 +1,14 @@
-// FILE: src/components/DataForms/StudySessionForm.jsx
 import React, { useState } from 'react';
-import { generateId } from '../../utils/helpers.js';
+import { generateId, getLocalDate } from '../../utils/helpers';
 
 /**
  * StudySessionForm: Component to log study time.
  */
-const StudySessionForm = ({ onAddStudySession, showToast }) => {
+const StudySessionForm = ({ existingDomains = [], onAddStudySession, showToast }) => {
   const [topic, setTopic] = useState('');
   const [duration, setDuration] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  // Refactor: Use helper to ensure local date is used
+  const [date, setDate] = useState(getLocalDate());
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -47,14 +47,23 @@ const StudySessionForm = ({ onAddStudySession, showToast }) => {
       </h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <input
-          type="text"
-          placeholder="Topic Studied (e.g., VLANs)"
-          value={topic}
-          onChange={(e) => setTopic(e.target.value)}
-          className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-slate-100"
-          required
-        />
+        <div>
+            <input
+            type="text"
+            list="domain-suggestions"
+            placeholder="Topic Studied (e.g., VLANs)"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-slate-100"
+            required
+            />
+            {/* Enhancement: Autocomplete from existing domains */}
+            <datalist id="domain-suggestions">
+                {existingDomains.map((d) => (
+                    <option key={d} value={d} />
+                ))}
+            </datalist>
+        </div>
 
         <input
           type="date"

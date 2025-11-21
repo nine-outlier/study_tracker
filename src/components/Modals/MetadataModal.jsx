@@ -1,14 +1,7 @@
-// FILE: src/components/Modals/MetadataModal.jsx
 import React, { useState, useEffect } from 'react';
 
 /**
  * MetadataModal: A modal to correct / rename uncategorized domains.
- *
- * Props:
- * - topic: { domainName?: string, ... }  // the domain that needs fixing
- * - onClose: () => void
- * - onSubmit: (topic, correctedDomainName: string) => void
- * - showToast: (message: string, isError?: boolean) => void
  */
 const MetadataModal = ({ topic, onClose, onSubmit, showToast }) => {
   const initialName = topic?.domainName || '';

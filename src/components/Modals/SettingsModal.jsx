@@ -1,4 +1,3 @@
-// FILE: src/components/Modals/SettingsModal.jsx
 import React, { useState, useEffect } from 'react';
 
 /**

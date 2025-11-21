@@ -14,12 +14,13 @@ const PerformanceTrends = ({ trendData, rawTrendStats, weightedTrendStats, useWe
     const weight = payload.weight || 1;
     const minRadius = 3;
     const maxRadius = 8;
+    // Logic: Higher weight = Bigger dot
     const radius = Math.max(minRadius, Math.min(maxRadius, minRadius + (weight - 1) * 1.5)); 
     return <circle cx={cx} cy={cy} r={radius} fill={stroke} />;
   };
   
   const FilterCheckbox = ({ value, label }) => (
-    <label className="flex items-center space-x-2 px-3 py-1">
+    <label className="flex items-center space-x-2 px-3 py-1 cursor-pointer">
       <input
         type="checkbox"
         checked={trendFilter[value]}
@@ -39,21 +40,26 @@ const PerformanceTrends = ({ trendData, rawTrendStats, weightedTrendStats, useWe
         step="0.5"
         value={weights[value]}
         onChange={(e) => setWeights(prev => ({ ...prev, [value]: parseFloat(e.target.value) || 0 }))}
-        className="form-input h-8 w-20 text-sm rounded-md border-slate-300 dark:bg-gray-700 dark:border-gray-600 dark:text-slate-100"
+        className="form-input h-8 w-20 text-sm rounded-md border-slate-300 dark:bg-gray-700 dark:border-gray-600 dark:text-slate-100 focus:ring-sky-500 focus:border-sky-500"
       />
     </label>
   );
   
   const trendStats = useWeightedAverages ? weightedTrendStats : rawTrendStats;
-  // Thematic colors for chart elements ARE dynamic
-  const axisFill = appSettings.darkMode ? '#94a3b8' : '#64748b'; // Dim Gray / Slate 500
-  const gridStroke = appSettings.darkMode ? '#1f2937' : '#e2e8f0'; // Med Gray / Slate 200
-  const passingLineStroke = appSettings.darkMode ? '#e2e8f0' : '#000000'; // White / Black
-  const passingLabelFill = appSettings.darkMode ? '#e2e8f0' : '#334155'; // White / Slate 700
   
-  // Get dynamic colors for stats
-  const trendColor = trendStats.trend === 'Positive' ? (appSettings.colorblindMode ? 'text-cb-strong dark:text-green-400' : 'text-green-600 dark:text-green-400') :
-                     trendStats.trend === 'Negative' ? (appSettings.colorblindMode ? 'text-cb-critical dark:text-red-400' : 'text-red-600 dark:text-red-400') :
+  // FIX: High contrast colors for Dark Mode
+  const axisFill = appSettings.darkMode ? '#f1f5f9' : '#64748b'; 
+  const gridStroke = appSettings.darkMode ? '#475569' : '#e2e8f0'; 
+  const passingLineStroke = appSettings.darkMode ? '#f8fafc' : '#000000'; 
+  const passingLabelFill = appSettings.darkMode ? '#f8fafc' : '#334155'; 
+
+  // Tooltip Colors
+  const tooltipBg = appSettings.darkMode ? '#1f2937' : '#ffffff';
+  const tooltipBorder = appSettings.darkMode ? '#374151' : '#e2e8f0';
+  const tooltipText = appSettings.darkMode ? '#f3f4f6' : '#111827';
+  
+  const trendColor = trendStats.trend === 'Positive' ? (appSettings.colorblindMode ? 'text-teal-600 dark:text-teal-400' : 'text-green-600 dark:text-green-400') :
+                     trendStats.trend === 'Negative' ? (appSettings.colorblindMode ? 'text-red-600 dark:text-red-400' : 'text-red-600 dark:text-red-400') :
                      'text-slate-900 dark:text-slate-100';
   const meanColor = getScoreClass(trendStats.mean, appSettings.colorblindMode);
   const medianColor = getScoreClass(trendStats.median, appSettings.colorblindMode);
@@ -91,19 +97,17 @@ const PerformanceTrends = ({ trendData, rawTrendStats, weightedTrendStats, useWe
           <div>
             <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Filter Timeline:</span>
             <div className="flex flex-col">
-              <FilterCheckbox value="practiceTest" label="Practice Tests" />
-              <FilterCheckbox value="officialQuiz" label="Official Quizzes" />
-              <FilterCheckbox value="miniTest" label="Mini Tests" />
-              <FilterCheckbox value="miniQuiz" label="(Legacy) Mini Quizzes" />
+              {Object.entries(config.TEST_TYPES).map(([key, label]) => (
+                  <FilterCheckbox key={key} value={key} label={label} />
+              ))}
             </div>
           </div>
           <div>
             <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Set Data Weights:</span>
             <div className="flex flex-col">
-              <WeightInput value="practiceTest" label="Practice Tests" />
-              <WeightInput value="officialQuiz" label="Official Quizzes" />
-              <WeightInput value="miniTest" label="Mini Tests" />
-              <WeightInput value="miniQuiz" label="(Legacy) Mini Quiz" />
+              {Object.entries(config.TEST_TYPES).map(([key, label]) => (
+                  <WeightInput key={key} value={key} label={label} />
+              ))}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 pl-3">
               Note: Timeline dots are scaled by weight when 'Use Weighted Averages' is on.
@@ -112,7 +116,7 @@ const PerformanceTrends = ({ trendData, rawTrendStats, weightedTrendStats, useWe
         </div>
       )}
       
-      <ResponsiveContainer width="100%" height={250}>
+      <ResponsiveContainer width="100%" height={300}>
         <LineChart data={trendData}>
           <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
           <XAxis dataKey="session" fontSize={12} stroke={axisFill} tick={{ fill: axisFill }} />
@@ -125,6 +129,15 @@ const PerformanceTrends = ({ trendData, rawTrendStats, weightedTrendStats, useWe
              }
              return label;
             }}
+            contentStyle={{ 
+                backgroundColor: tooltipBg,
+                borderColor: tooltipBorder,
+                color: tooltipText,
+                borderRadius: '0.5rem'
+            }}
+            // FIX: Force item and label text color
+            itemStyle={{ color: tooltipText }}
+            labelStyle={{ color: tooltipText, fontWeight: 'bold', marginBottom: '0.25rem' }}
           />
           <Line 
             type="monotone" 
@@ -140,7 +153,8 @@ const PerformanceTrends = ({ trendData, rawTrendStats, weightedTrendStats, useWe
         </LineChart>
       </ResponsiveContainer>
     </div>
-    </div>
-  )};
+  </div>
+  );
+};
 
 export default PerformanceTrends;

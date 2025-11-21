@@ -1,4 +1,3 @@
-// FILE: src/components/DataForms/UncategorizedDataForm.jsx
 import React, { useState } from 'react';
 
 /**

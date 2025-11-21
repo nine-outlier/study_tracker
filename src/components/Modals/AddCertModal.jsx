@@ -1,35 +1,37 @@
 import React, { useState, useEffect } from 'react';
+import DataForm from '../DataForms/DataForm';
+import StudySessionForm from '../DataForms/StudySessionForm';
+import DomainForm from '../DataForms/DomainForm';
+import ReviewDataForm from '../DataForms/ReviewDataForm';
+import UncategorizedDataForm from '../DataForms/UncategorizedDataForm';
 
 /**
- * AddCertModal
- * A modal for adding subsequent certifications.
- *
- * Props:
- * - isVisible: boolean
- * - onAddCert: (name: string) => void
- * - onClose: () => void
+ * DataEntryModal: Main modal for all data input, using tabs.
  */
-const AddCertModal = ({ onAddCert, onClose, isVisible }) => {
-  const [certName, setCertName] = useState('');
+const DataEntryModal = ({
+  isVisible,
+  activeCert,
+  certData,
+  uncategorizedEntries,
+  existingDomains,
+  onAddTest,
+  onAddStudySession,
+  onAddDomain,
+  onDeleteDomain,
+  onDeleteTest,
+  onDeleteStudySession,
+  onReassignData,
+  onClose,
+  showToast,
+}) => {
+  const [formType, setFormType] = useState('data');
   const [show, setShow] = useState(false);
 
   useEffect(() => {
     if (isVisible) {
       setShow(true);
-    } else {
-      setShow(false);
     }
   }, [isVisible]);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const trimmed = certName.trim();
-    if (!trimmed) return;
-    onAddCert(trimmed);
-    setCertName('');
-    setShow(false);
-    setTimeout(onClose, 300);
-  };
 
   const handleClose = () => {
     setShow(false);
@@ -37,6 +39,20 @@ const AddCertModal = ({ onAddCert, onClose, isVisible }) => {
   };
 
   if (!isVisible) return null;
+
+  const activeDomainNames = existingDomains || [];
+  const hasUncategorized =
+    Array.isArray(uncategorizedEntries) && uncategorizedEntries.length > 0;
+
+  // Helper for tab classes
+  const getTabClass = (tabName) => {
+    const isActive = formType === tabName;
+    return `whitespace-nowrap px-3 py-2 rounded-md text-sm transition-colors ${
+      isActive
+        ? 'font-semibold bg-white text-slate-900 dark:bg-gray-800 dark:text-slate-100 shadow-sm'
+        : 'text-slate-600 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-gray-800'
+    }`;
+  };
 
   return (
     <div
@@ -46,58 +62,102 @@ const AddCertModal = ({ onAddCert, onClose, isVisible }) => {
       onClick={handleClose}
     >
       <div
-        className={`bg-white p-6 rounded-xl ring-1 ring-slate-200 shadow-lg w-full max-w-md m-4 dark:bg-gray-900 dark:ring-gray-800 transform transition-all duration-200 ${
+        className={`bg-white p-6 rounded-xl ring-1 ring-slate-200 shadow-lg w-full max-w-2xl m-4 dark:bg-gray-900 dark:ring-gray-800 transform transition-all duration-200 ${
           show ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-          Add New Certification
-        </h2>
-        <p className="text-slate-600 dark:text-slate-400 mt-2">
-          Enter the name of the new certification you want to track.
-        </p>
-
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          <div>
-            <label
-              htmlFor="newCertName"
-              className="block text-sm font-medium text-slate-700 dark:text-slate-300"
-            >
-              Certification Name
-            </label>
-            <input
-              type="text"
-              id="newCertName"
-              value={certName}
-              onChange={(e) => setCertName(e.target.value)}
-              placeholder="e.g., AWS Cloud Practitioner"
-              className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400
-                focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500
-                dark:bg-gray-800 dark:border-gray-700 dark:text-slate-100"
-              required
-            />
-          </div>
-
-          <div className="flex justify-end space-x-2">
+        {/* Modal Tabs */}
+        <div className="flex space-x-1 bg-slate-100 rounded-lg p-1 mb-6 dark:bg-gray-950 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setFormType('data')}
+            className={getTabClass('data')}
+          >
+            Add Test
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormType('studySession')}
+            className={getTabClass('studySession')}
+          >
+            Study Session
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormType('domains')}
+            className={getTabClass('domains')}
+          >
+            Domains
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormType('edit')}
+            className={getTabClass('edit')}
+          >
+            Review
+          </button>
+          {/* Show Uncategorized tab only if data exists */}
+          {hasUncategorized && (
             <button
               type="button"
-              onClick={handleClose}
-              className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-md hover:bg-slate-200 dark:bg-gray-800 dark:text-slate-300 dark:hover:bg-gray-700"
+              onClick={() => setFormType('uncategorized')}
+              className={`${getTabClass(
+                'uncategorized'
+              )} text-red-600 dark:text-red-400`}
             >
-              Cancel
+              Uncategorized
             </button>
-            <button
-              type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-sky-600 rounded-md hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-600"
-            >
-              Add Certification
-            </button>
-          </div>
-        </form>
+          )}
+        </div>
+
+        <div className="max-h-[70vh] overflow-y-auto pr-2">
+          {formType === 'data' && (
+            <DataForm
+              existingDomains={activeDomainNames}
+              onAddTest={onAddTest}
+              onClose={handleClose}
+              showToast={showToast}
+            />
+          )}
+
+          {formType === 'studySession' && (
+            <StudySessionForm
+              existingDomains={activeDomainNames}
+              onAddStudySession={onAddStudySession}
+              showToast={showToast}
+            />
+          )}
+
+          {formType === 'domains' && (
+            <DomainForm
+              existingDomains={activeDomainNames}
+              onAddDomain={onAddDomain}
+              onDeleteDomain={onDeleteDomain}
+              showToast={showToast}
+            />
+          )}
+
+          {formType === 'edit' && (
+            <ReviewDataForm
+              certData={certData}
+              onDeleteTest={onDeleteTest}
+              onDeleteStudySession={onDeleteStudySession}
+            />
+          )}
+
+          {formType === 'uncategorized' && (
+            <UncategorizedDataForm
+              uncategorizedEntries={uncategorizedEntries}
+              existingDomains={activeDomainNames}
+              onReassignData={onReassignData}
+              showToast={showToast}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
 };
 
-export default AddCertModal;
+export default DataEntryModal;

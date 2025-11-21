@@ -6,11 +6,16 @@ import { NORMAL_COLORS, COLORBLIND_SAFE_COLORS } from '../../utils/themeHelpers.
 const DomainChart = ({ data, isWeighted, appSettings }) => {
     const colors = appSettings.colorblindMode ? COLORBLIND_SAFE_COLORS : NORMAL_COLORS;
     
-    // Thematic colors for chart elements ARE dynamic
-    const axisFill = appSettings.darkMode ? '#94a3b8' : '#64748b'; // Dim Gray / Slate 500
-    const gridStroke = appSettings.darkMode ? '#1f2937' : '#e2e8f0'; // Med Gray / Slate 200
-    const passingLineStroke = appSettings.darkMode ? '#e2e8f0' : '#000000'; // White / Black
-    const passingLabelFill = appSettings.darkMode ? '#e2e8f0' : '#334155'; // White / Slate 700
+    // High contrast colors for Dark Mode visibility
+    const axisFill = appSettings.darkMode ? '#f1f5f9' : '#64748b'; // Slate 100 (Bright) vs Slate 500
+    const gridStroke = appSettings.darkMode ? '#475569' : '#e2e8f0'; // Slate 600 (Visible) vs Slate 200
+    const passingLineStroke = appSettings.darkMode ? '#f8fafc' : '#000000'; // White vs Black
+    const passingLabelFill = appSettings.darkMode ? '#f8fafc' : '#334155'; // White vs Slate 700
+
+    // Tooltip Text Colors - FIX: Explicitly define text color for dark mode
+    const tooltipBg = appSettings.darkMode ? '#1f2937' : '#ffffff';
+    const tooltipBorder = appSettings.darkMode ? '#374151' : '#e2e8f0';
+    const tooltipText = appSettings.darkMode ? '#f3f4f6' : '#111827'; // White text on dark bg
 
     return (
         <div className="bg-white rounded-xl shadow-sm ring-1 ring-slate-200 p-4 sm:p-6 dark:bg-gray-900 dark:ring-gray-800">
@@ -24,11 +29,20 @@ const DomainChart = ({ data, isWeighted, appSettings }) => {
                     <YAxis dataKey="domain" type="category" width={100} fontSize={12} interval={0} stroke={axisFill} tick={{ fill: axisFill }} />
                     <Tooltip
                         formatter={(value) => [`${value}%`, isWeighted ? 'Weighted Average' : 'Raw Average']}
+                        cursor={{ fill: appSettings.darkMode ? '#374151' : '#f3f4f6', opacity: 0.4 }}
+                        contentStyle={{ 
+                            backgroundColor: tooltipBg,
+                            borderColor: tooltipBorder,
+                            color: tooltipText,
+                            borderRadius: '0.5rem'
+                        }}
+                        // FIX: Force item and label text color to match theme
+                        itemStyle={{ color: tooltipText }}
+                        labelStyle={{ color: tooltipText, fontWeight: 'bold', marginBottom: '0.25rem' }}
                     />
                     <Bar dataKey="accuracy" radius={[0, 5, 5, 0]}>
                         {data.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={
-                                // Using 80/60/40 thresholds to match 4-tier system
                                 entry.accuracy >= 80 ? colors[3] : // Strong
                                 entry.accuracy >= 60 ? colors[2] : // Developing
                                 entry.accuracy >= 40 ? colors[1] : // Weak

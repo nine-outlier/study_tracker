@@ -1,5 +1,3 @@
-// General utility functions
-
 export const generateId = (prefix) => `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
 export const calculatePercentage = (correct, total) => (total > 0 ? Math.round((correct / total) * 100) : 0);
@@ -32,4 +30,16 @@ export const calculateTrendSlope = (scores) => {
   const numerator = n * sumXY - sumX * sumY;
   const denominator = n * sumX2 - sumX * sumX;
   return denominator === 0 ? 0 : numerator / denominator;
+};
+
+/**
+ * Returns the current local date in YYYY-MM-DD format.
+ * Used for setting default values in date pickers to avoid UTC shifts.
+ */
+export const getLocalDate = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
