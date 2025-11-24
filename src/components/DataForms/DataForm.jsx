@@ -158,6 +158,8 @@ const DataForm = ({ existingDomains, onAddTest, onClose, showToast }) => {
                                     {existingDomains.map(d => (
                                         <option key={d} value={d}>{d}</option>
                                     ))}
+                                    {/* FIXED: Added All Domains option here */}
+                                    <option value={config.ALL_DOMAINS_KEY}>{config.ALL_DOMAINS_KEY}</option>
                                 </select>
                             </div>
                             <div className="w-20">

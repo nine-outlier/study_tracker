@@ -15,7 +15,7 @@
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:;"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Certification Tracker</title>
+    <title>Study Tracker</title>
 
     <!-- Fonts (Inter & Lexend) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -25,8 +25,19 @@
       rel="stylesheet"
     />
   </head>
+
   <body class="bg-slate-50 dark:bg-gray-950">
+    <!-- Custom Title Bar
+<div class="titlebar">
+  <img src="./src/assets/icon.png" class="titlebar-icon" />
+  <div class="titlebar-title">Study Tracker</div>
+</div>
+      -->
+
+    <!-- React App Root -->
     <div id="root"></div>
+
+    <!-- Webpack Bundle -->
     <script src="./dist/bundle.js"></script>
   </body>
 </html>

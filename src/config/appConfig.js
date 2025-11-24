@@ -22,14 +22,7 @@ export const config = {
     UNCATEGORIZED_KEY: "[Uncategorized Data]"
 };
 
-export const allExamData = {
-    myFirstCert: {
-        fullName: "My First Certification",
-        tests: [],
-        domains: [],
-        studySessions: [],
-    },
-};
+export const allExamData = {};
 
 export const DEFAULT_SETTINGS = {
     useAccessibleFont: false,

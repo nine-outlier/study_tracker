@@ -1,25 +1,27 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { loadData, saveData } from './utils/fileStorage';
-import { calculatePercentage, calculateWeightedAverage, calculateRawAverage, calculateTrendSlope, generateId } from './utils/helpers';
-import { getScoreClass, getReviewClass, getMasteredClass, NORMAL_COLORS, COLORBLIND_SAFE_COLORS } from './utils/themeHelpers';
-import { config, allExamData, DEFAULT_SETTINGS } from './config/appConfig';
+import { loadData, saveData } from './utils/fileStorage.js';
+import { calculatePercentage, calculateWeightedAverage, calculateRawAverage, calculateTrendSlope, generateId } from './utils/helpers.js';
+import { getScoreClass, getReviewClass, getMasteredClass, NORMAL_COLORS, COLORBLIND_SAFE_COLORS } from './utils/themeHelpers.js';
+import { config, allExamData, DEFAULT_SETTINGS } from './config/appConfig.js';
 
-import StatsCard from './components/UI/StatsCard';
-import Navigation from './components/UI/Navigation';
-import DomainChart from './components/charts/DomainChart';
-import MasteryChart from './components/charts/MasteryChart';
-import TopicsForReview from './components/UI/TopicsForReview';
-import WeightedToggle from './components/UI/WeightedToggle';
-import PerformanceTrends from './components/charts/PerformanceTrends';
-import StudyLog from './components/UI/StudyLog';
-import ToastNotification from './components/UI/ToastNotification';
-import ConfirmModal from './components/Modals/ConfirmModal';
-import DataEntryModal from './components/Modals/DataEntryModal';
-import SettingsModal from './components/Modals/SettingsModal';
-import MetadataModal from './components/Modals/MetadataModal';
-import AddCertModal from './components/Modals/AddCertModal';
-import OnboardingModal from './components/Modals/OnboardingModal';
-import { SettingsIcon, PlusIcon } from './components/UI/Icons';
+import StatsCard from './components/UI/StatsCard.jsx';
+import Navigation from './components/UI/Navigation.jsx';
+import DomainChart from './components/charts/DomainChart.jsx';
+import MasteryChart from './components/charts/MasteryChart.jsx';
+import TopicsForReview from './components/UI/TopicsForReview.jsx';
+import WeightedToggle from './components/UI/WeightedToggle.jsx';
+import PerformanceTrends from './components/charts/PerformanceTrends.jsx';
+import StudyLog from './components/UI/StudyLog.jsx';
+import ToastNotification from './components/UI/ToastNotification.jsx';
+import ConfirmModal from './components/Modals/ConfirmModal.jsx';
+import DataEntryModal from './components/Modals/DataEntryModal.jsx';
+import SettingsModal from './components/Modals/SettingsModal.jsx';
+import MetadataModal from './components/Modals/MetadataModal.jsx';
+import AddCertModal from './components/Modals/AddCertModal.jsx';
+import OnboardingModal from './components/Modals/OnboardingModal.jsx';
+import LoadingScreen from './components/UI/LoadingScreen.jsx';
+import SettingsFab from './components/UI/SettingsFab.jsx';
+import { PlusIcon } from './components/UI/Icons.jsx';
 
 const useCertificationMetrics = (certData, trendFilter, weights, appSettings) => {
   return useMemo(() => {
@@ -30,7 +32,6 @@ const useCertificationMetrics = (certData, trendFilter, weights, appSettings) =>
     const allDomainsData = (certData.domains || []).filter(d => !d.isDeleted);
     const activeDomains = allDomainsData.map(d => d.name);
     const allStudySessions = (certData.studySessions || []).filter(s => !s.isDeleted);
-    // Retrieve journal entries
     const allJournalEntries = (certData.journalEntries || []).filter(j => !j.isDeleted);
 
     let uncategorizedTestEntries = [];
@@ -111,7 +112,7 @@ const useCertificationMetrics = (certData, trendFilter, weights, appSettings) =>
     const officialQuizRawAverage = calculateRawAverage(officialQuizScoresList);
 
     let weightedDomainStats = [];
-    let rawDomainStats = []; // NEW: Separate array for raw stats
+    let rawDomainStats = []; 
     let weightedMasteryTiers = { 'Critical': 0, 'Weak': 0, 'Developing': 0, 'Strong': 0, 'Mastered': 0 };
     let rawMasteryTiers = { 'Critical': 0, 'Weak': 0, 'Developing': 0, 'Strong': 0, 'Mastered': 0 };
     let weightedPriorityDomains = [];
@@ -143,14 +144,11 @@ const useCertificationMetrics = (certData, trendFilter, weights, appSettings) =>
         weightedPriorityDomains.push({ ...priorityData, weightedAvg: weightedAvgScore, priority: (100 - weightedAvgScore) * data.totalQuestions });
       }
       
-      // RAW (unweighted) calculations - THIS WAS MISSING!
+      // RAW (unweighted) calculations
       if (data.rawScoreCount > 0) {
           const rawAvg = Math.round(data.rawScoreSum / data.rawScoreCount);
-          
-          // NEW: Build raw domain stats
           rawDomainStats.push({ domain: data.domain, accuracy: rawAvg, scores: data.scores });
           
-          // NEW: Calculate raw mastery tiers
           const isRawMastered = numScores >= config.MIN_ATTEMPTS_FOR_MASTERY && latestAccuracy >= config.MASTERY_LATEST_SCORE_THRESHOLD && rawAvg >= config.MASTERY_AVG_THRESHOLD;
           if (isRawMastered) { rawMasteryTiers['Mastered']++; rawMasteredCount++; }
           else if (rawAvg >= 80) rawMasteryTiers['Strong']++;
@@ -158,7 +156,6 @@ const useCertificationMetrics = (certData, trendFilter, weights, appSettings) =>
           else if (rawAvg >= 40) rawMasteryTiers['Weak']++;
           else rawMasteryTiers['Critical']++;
           
-          // Calculate raw priority domains
           if (rawAvg < config.PASSING_SCORE) {
               rawPriorityDomains.push({ ...priorityData, weightedAvg: rawAvg, priority: (100 - rawAvg) * data.totalQuestions });
           }
@@ -194,9 +191,9 @@ const useCertificationMetrics = (certData, trendFilter, weights, appSettings) =>
       practiceTestRawAverage, officialQuizRawAverage,
       rawTrendStats, weightedTrendStats,
       weightedDomainStats,
-      rawDomainStats, // NEW: Return raw domain stats
+      rawDomainStats,
       weightedMasteryData,
-      rawMasteryData: buildMasteryData(rawMasteryTiers), // NEW: Return raw mastery data
+      rawMasteryData: buildMasteryData(rawMasteryTiers),
       weightedPriorityTopics: weightedPriorityDomains,
       rawPriorityTopics: rawPriorityDomains,
       officialQuizCount: allTests.filter(t => t.type === 'officialQuiz').length,
@@ -212,6 +209,10 @@ const useCertificationMetrics = (certData, trendFilter, weights, appSettings) =>
 };
 
 const App = () => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [isExitingLoad, setIsExitingLoad] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('Initializing Application...');
+  
   const [activeTab, setActiveTab] = useState('overview');
   const [examData, setExamData] = useState(allExamData);
   const [appSettings, setAppSettings] = useState(DEFAULT_SETTINGS);
@@ -236,27 +237,58 @@ const App = () => {
   // Load Data
   useEffect(() => {
     const loadInitialData = async () => {
-      const result = await loadData();
+      
+      const startTime = Date.now();
+      setLoadingMessage('Loading Core Modules...');
+      const dataLoadPromise = loadData();
+      
+      // Simulate Steps (7s logic)
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      setLoadingMessage('Verifying Data Integrity...');
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      setLoadingMessage('Configuring Visualization Engine...');
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      setLoadingMessage('Preparing Workspace...');
+
+      const result = await dataLoadPromise;
+
       if (result && result.error) {
         showToast("Error loading data. Starting fresh.", true);
-        return;
-      }
-      let loadedData = result.data || allExamData;
-      let loadedSettings = result.settings || DEFAULT_SETTINGS;
-      
-      Object.keys(loadedData).forEach(certKey => {
-        const cert = loadedData[certKey];
-        if (cert.domains?.length > 0 && typeof cert.domains[0] === 'string') {
-          cert.domains = cert.domains.map(name => ({ name, isDeleted: false }));
+      } else {
+        let loadedData = (result && result.data) || allExamData;
+        let loadedSettings = (result && result.settings) || DEFAULT_SETTINGS;
+        
+        // Remove quickLoad option if it exists to clean up UI/Logic
+        if (loadedSettings) {
+            const { quickLoad, ...rest } = loadedSettings;
+            loadedSettings = rest;
         }
-        if (!cert.journalEntries) {
-            cert.journalEntries = [];
-        }
-      });
 
-      setExamData(loadedData);
-      setAppSettings(loadedSettings);
-      setActiveCert(Object.keys(loadedData)[0] || null);
+        Object.keys(loadedData).forEach(certKey => {
+          const cert = loadedData[certKey];
+          if (cert.domains?.length > 0 && typeof cert.domains[0] === 'string') {
+            cert.domains = cert.domains.map(name => ({ name, isDeleted: false }));
+          }
+          if (!cert.journalEntries) {
+              cert.journalEntries = [];
+          }
+        });
+
+        setExamData(loadedData);
+        setAppSettings(loadedSettings);
+        setActiveCert(Object.keys(loadedData)[0] || null);
+      }
+
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = 7000 - elapsedTime;
+      
+      if (remainingTime > 0) {
+        await new Promise(resolve => setTimeout(resolve, remainingTime));
+      }
+      
+      setIsExitingLoad(true);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setIsLoading(false);
     };
     loadInitialData();
   }, []);
@@ -265,8 +297,14 @@ const App = () => {
   const initialLoadRef = useRef(true);
   useEffect(() => {
     if (initialLoadRef.current) { initialLoadRef.current = false; return; }
-    saveData(examData, appSettings);
-  }, [examData, appSettings]);
+    if (isLoading) return; 
+    
+    // Ensure quickLoad is not saved
+    const settingsToSave = { ...appSettings };
+    if ('quickLoad' in settingsToSave) delete settingsToSave.quickLoad;
+    
+    saveData(examData, settingsToSave);
+  }, [examData, appSettings, isLoading]);
 
   // Theme Effect
   useEffect(() => {
@@ -276,7 +314,7 @@ const App = () => {
 
   // Data Integrity Effect
   useEffect(() => {
-    if (!activeCert) return;
+    if (!activeCert || isLoading) return;
     const cert = examData[activeCert];
     if (!cert || !cert.tests) return;
     
@@ -286,22 +324,55 @@ const App = () => {
     cert.tests.forEach((test) => {
       if (test.domains && !test.isDeleted) {
         for (const domainName in test.domains) {
-          if (!activeDomains.includes(domainName) && domainName !== config.ALL_DOMAINS_KEY && domainName !== config.UNCATEGORIZED_KEY) {
+          if (!activeDomains.includes(domainName) && 
+              domainName !== config.ALL_DOMAINS_KEY &&
+              domainName !== config.UNCATEGORIZED_KEY) {
             tbdDomains.add(domainName);
           }
         }
       }
     });
     
-    const topicsToFix = Array.from(tbdDomains).map(domainName => ({ domainName: domainName }));
+    const topicsToFix = Array.from(tbdDomains).map(domainName => ({ domainName }));
     setTbdQueue(topicsToFix);
-  }, [activeCert, examData]);
+  }, [activeCert, examData, isLoading]);
 
   useEffect(() => {
     if (!currentTbdTopic && tbdQueue.length > 0) {
       setCurrentTbdTopic(tbdQueue[0]);
     }
   }, [tbdQueue, currentTbdTopic]);
+  
+  // CSS Injection
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes fadeIn {
+        from { opacity: 0; transform: scale(0.98); }
+        to { opacity: 1; transform: scale(1); }
+      }
+      .animate-fadeIn {
+        animation: fadeIn 0.8s ease-out forwards;
+      }
+      
+      @keyframes gradient-pan {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+      .animate-gradient-text {
+        background-size: 200% auto;
+        animation: gradient-pan 3s linear infinite;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => { document.head.removeChild(style); };
+  }, []);
+
+  // --- HANDLERS ---
   
   const handleAddTest = (newTest) => {
     setExamData(prev => {
@@ -371,14 +442,15 @@ const App = () => {
     const trimmed = certName.trim();
     if (!trimmed) { showToast("Please enter a name.", true); return; }
 
+    const newKey = createCertKeyFromName(trimmed, examData);
+
     setExamData(prevData => {
       const newData = structuredClone(prevData || {});
-      const key = createCertKeyFromName(trimmed, newData);
-      newData[key] = createCertObject(trimmed);
-      setActiveCert(key);
+      newData[newKey] = createCertObject(trimmed);
       return newData;
     });
 
+    setActiveCert(newKey);
     setShowAddCertModal(false);
     showToast("Certification added!");
   };
@@ -389,7 +461,7 @@ const App = () => {
   
   const promptDeleteTest = (testId) => {
     setConfirmModal({
-      isVisible: true, title: "Delete Test Entry?", message: "This will soft-delete the test.",
+      isVisible: true, title: "Delete Test Entry?", message: "This will soft-delete the test. You can purge it from Settings.",
       onConfirm: () => {
         setExamData(prev => {
             const newData = structuredClone(prev);
@@ -453,7 +525,7 @@ const App = () => {
     showToast("Domain deleted. Data moved to Uncategorized.");
     closeConfirmModal();
   };
-
+  
   const handleReassignData = (testId, targetDomain) => {
     setExamData(prevData => {
         const newData = structuredClone(prevData);
@@ -516,11 +588,24 @@ const App = () => {
   const metrics = useCertificationMetrics(examData[activeCert], trendFilter, weights, appSettings);
   const hasData = activeCert && metrics && (metrics.practiceTestsCount > 0 || metrics.officialQuizCount > 0 || (metrics.studySessions && metrics.studySessions.length > 0) || (metrics.journalEntries && metrics.journalEntries.length > 0));
   const appClasses = `min-h-screen ${appSettings.useAccessibleFont ? 'font-accessible' : ''} ${appSettings.reduceMotion ? 'reduce-motion' : ''}`;
+  
   const hasAnyCerts = Object.keys(examData || {}).length > 0;
+  
+  const normalGradient = 'linear-gradient(to right, #38bdf8, #a855f7, #ec4899)'; 
+  const cbGradient = `linear-gradient(to right, ${COLORBLIND_SAFE_COLORS.join(', ')})`;
+  const activeGradient = appSettings.colorblindMode ? cbGradient : normalGradient;
 
+  // 1. SHOW LOADING SCREEN
+  if (isLoading) {
+    return <LoadingScreen message={loadingMessage} isExiting={isExitingLoad} />;
+  }
+  
+  const mainContentClass = isExitingLoad ? 'animate-fadeIn' : 'opacity-0';
+
+  // 3. ONBOARDING
   if (!hasAnyCerts) {
     return (
-      <div className={`${appClasses} p-8`}>
+      <div className={`${appClasses} p-8 ${mainContentClass}`}>
         {toast.show && (
           <ToastNotification
             message={toast.message}
@@ -533,10 +618,12 @@ const App = () => {
     );
   }
 
+  // 4. DASHBOARD
   return (
-    <div className={`${appClasses} p-4 sm:p-8`}>
+    <div className={`${appClasses} p-4 sm:p-8 ${mainContentClass}`}>
+      
       {toast.show && <ToastNotification message={toast.message} isError={toast.isError} onHide={() => setToast({ show: false, message: '', isError: false })} />}
-      {currentTbdTopic && <MetadataModal topic={currentTbdTopic} onClose={() => {setTbdQueue(p=>p.slice(1)); setCurrentTbdTopic(null);}} onSubmit={handleUpdateTopicDomain} showToast={showToast} />}
+      {currentTbdTopic && <MetadataModal topic={currentTbdTopic} onClose={handleCloseModal} onSubmit={handleUpdateTopicDomain} showToast={showToast} />}
       <ConfirmModal {...confirmModal} onCancel={closeConfirmModal} />
       
       <SettingsModal 
@@ -573,9 +660,39 @@ const App = () => {
       )}
 
       <div className={`${appSettings.maxWidth} mx-auto`}>
-        <div className="flex justify-between items-start mb-4">
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Certification Tracker</h1>
+        
+        {/* UNIFIED HEADER */}
+        <div className="flex justify-between items-center mb-4">
+           <div>
+              <style>{`
+                @keyframes gradient-pan {
+                  0% { background-position: 0% 50%; }
+                  50% { background-position: 100% 50%; }
+                  100% { background-position: 0% 50%; }
+                }
+                .animate-gradient-text {
+                  background-size: 200% auto;
+                  animation: gradient-pan 3s linear infinite;
+                  -webkit-background-clip: text;
+                  background-clip: text;
+                  color: transparent;
+                }
+              `}</style>
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 flex items-center">
+                Study Tracker
+                <span 
+                  className="ml-2 animate-gradient-text"
+                  style={{ backgroundImage: activeGradient }}
+                >
+                  2
+                </span>
+              </h1>
+              <p className="text-xs text-slate-400 dark:text-slate-500 font-mono mt-1">
+                  Version 1.0.0
+              </p>
+           </div>
         </div>
+        
         <Navigation 
             examData={examData} 
             activeCert={activeCert} 
@@ -626,11 +743,9 @@ const App = () => {
         )}
       </div>
       
-      <button onClick={() => setShowSettingsModal(true)} className="fixed bottom-8 left-8 w-14 h-14 bg-slate-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-slate-700 dark:bg-gray-800 dark:text-slate-300 dark:hover:bg-gray-700" title="Settings">
-        <SettingsIcon />
-      </button>
+      <SettingsFab onOpenSettings={() => setShowSettingsModal(true)} />
       
-      <button onClick={() => setShowDataEntryModal(true)} className="fixed bottom-8 right-8 w-14 h-14 bg-sky-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-400" title="Add New Data">
+      <button onClick={() => setShowDataEntryModal(true)} className="fixed bottom-8 right-8 w-14 h-14 bg-sky-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-sky-700 dark:bg-blue-500 dark:hover:bg-blue-400" title="Add New Data">
         <PlusIcon />
       </button>
     </div>

@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
-// Path where the user data JSON file will be saved. This is in the OS's specific user data directory.
+// Path where the user data JSON file will be saved.
 const userDataPath = path.join(app.getPath('userData'), 'userData.json');
 
 function createWindow() {
@@ -11,14 +11,28 @@ function createWindow() {
     height: 800,
     minWidth: 800,
     minHeight: 600,
+    title: "Study Tracker",
+    autoHideMenuBar: true,
+
+    // --- FIX: Enable Native Windows Title Bar ---
+    frame: true,  // Changed from false to true. This brings back the Windows frame.
+    
+    // Removed: titleBarStyle: 'hidden',
+    // Removed: titleBarOverlay: { ... },
+
+    // 🔹 Custom app icon (make sure build/icon.ico exists)
+    icon: path.join(__dirname, 'build', 'icon.ico'),
+
     webPreferences: {
       nodeIntegration: true,
-      contextIsolation: false, // Disabling context isolation for simpler IPC
+      contextIsolation: false,
     }
   });
 
+  mainWindow.setTitle("Study Tracker");
   mainWindow.loadFile('index.html');
   // Optional: Open DevTools for debugging
+  // mainWindow.webContents.openDevTools();
 }
 
 app.whenReady().then(() => {
@@ -34,16 +48,12 @@ app.on('window-all-closed', function () {
 });
 
 // --- IPC Handlers for File Operations ---
-// These handlers allow the React app to save/load data directly to the user's hard drive.
-
-// IPC Handler to load data from userDataPath
 ipcMain.handle('load-data', async () => {
   try {
     if (fs.existsSync(userDataPath)) {
       const data = fs.readFileSync(userDataPath, 'utf8');
       return JSON.parse(data);
     }
-    // Return empty state if file doesn't exist
     return { data: null, settings: null };
   } catch (error) {
     console.error('Failed to load data:', error);
@@ -51,7 +61,6 @@ ipcMain.handle('load-data', async () => {
   }
 });
 
-// IPC Handler to save data to userDataPath
 ipcMain.handle('save-data', async (event, data, settings) => {
   try {
     const content = JSON.stringify({ data, settings }, null, 2);

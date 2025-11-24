@@ -70,6 +70,9 @@ const GeneralSettingsForm = ({ appSettings, setAppSettings }) => {
       </h3>
 
       <div className="space-y-6 p-4 bg-slate-50 rounded-lg border border-slate-200 dark:bg-gray-800 dark:border-gray-700">
+        
+        {/* Quick Load Option Removed Here */}
+
         <SettingToggle
           id="darkMode"
           label="Dark Mode"
@@ -95,7 +98,7 @@ const GeneralSettingsForm = ({ appSettings, setAppSettings }) => {
         <SettingToggle
           id="colorblindMode"
           label="Colorblind Safe Colors"
-          description="Use chart colors that are easier to distinguish."
+          description="Use higher-contrast colors that are easier to distinguish."
           checked={appSettings.colorblindMode}
           onChange={() =>
             handleSettingChange('colorblindMode', !appSettings.colorblindMode)
@@ -107,7 +110,7 @@ const GeneralSettingsForm = ({ appSettings, setAppSettings }) => {
         <SettingToggle
           id="reduceMotion"
           label="Reduce Motion"
-          description="Disable animations and transitions."
+          description="Reduce animations and eliminate transitions."
           checked={appSettings.reduceMotion}
           onChange={() =>
             handleSettingChange('reduceMotion', !appSettings.reduceMotion)

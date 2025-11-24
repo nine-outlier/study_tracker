@@ -47,3 +47,34 @@ body {
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;  /* Firefox */
 }
+
+/* --- REMOVED CUSTOM TITLEBAR STYLES ---
+   Since we switched to frame: true in main.js, we disable these styles 
+   so they don't interfere with the native window.
+*/
+
+/*
+.titlebar {
+  -webkit-app-region: drag;
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.titlebar-icon {
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-title {
+  font-size: 14px;
+  font-family: "Segoe UI", sans-serif;
+  color: #222;
+  -webkit-app-region: no-drag;
+}
+*/
