@@ -804,7 +804,7 @@ const App = () => {
                 </div>
                 
                 <p className="text-xs app-text-muted font-mono mt-1">
-                    Beta Version 1.0.9
+                    Beta Version 1.1.0
                 </p>
              </div>
              
