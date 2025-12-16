@@ -1,16 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 
 // ==========================================
-// UTILITY: Dark Mode Detection
-// ==========================================
-const isDarkModeActive = (canvasRef) => {
-  return canvasRef.current && canvasRef.current.closest('.dark');
-};
-
-// ==========================================
 // OPTION 1: CANVAS LOADER (Particle Rain)
 // ==========================================
-const CanvasLoader = ({ message = "Loading...", reduceMotion = false }) => {
+const CanvasLoader = ({ message = "Loading...", reduceMotion = false, isDarkMode }) => {
   const canvasRef = useRef(null);
   const requestRef = useRef();
   const mouseRef = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
@@ -26,7 +19,7 @@ const CanvasLoader = ({ message = "Loading...", reduceMotion = false }) => {
     else modeRef.current = 'STANDARD';
   }
 
-  // Slightly fewer particles if slowing down to keep it clean, but not drastic
+  // Slightly fewer particles if slowing down to keep it clean
   const particleCount = reduceMotion ? 350 : 450;
   
   const baseColors = [
@@ -87,7 +80,6 @@ const CanvasLoader = ({ message = "Loading...", reduceMotion = false }) => {
         z: z,
         type: type,
         radius: (1 - z) * 3.5 + 0.5,  
-        // Apply speedFactor to all motion vectors
         speed: baseSpeedY * speedFactor,  
         baseOpacity: (1 - z) * 0.7 + 0.3,
         opacity: (1 - z) * 0.7 + 0.3,
@@ -113,15 +105,14 @@ const CanvasLoader = ({ message = "Loading...", reduceMotion = false }) => {
     const animate = () => {
       frame++;
       
-      const isDark = isDarkModeActive(canvasRef);
+      // FIX: Use prop instead of querying DOM
+      const isDark = isDarkMode;
       
       ctx.fillStyle = isDark ? 'rgba(15, 23, 42, 0.4)' : 'rgba(248, 250, 252, 0.85)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
       particles.forEach(p => {
         // --- Physics Engine ---
-        
-        // Calculate distance and angle to mouse
         const dx = mouseRef.current.x - p.x;
         const dy = mouseRef.current.y - p.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
@@ -129,13 +120,11 @@ const CanvasLoader = ({ message = "Loading...", reduceMotion = false }) => {
         const repulsionRadius = 60; 
         
         if (distance < repulsionRadius && distance > 0) {
-          // Repulsion force
           const repulsionStrength = (repulsionRadius - distance) / repulsionRadius * 0.3;
           const angle = Math.atan2(dy, dx);
           p.vx -= Math.cos(angle) * repulsionStrength * 1.5;
           p.vy -= Math.sin(angle) * repulsionStrength * 1.5;
         } else {
-          // Gentle attraction force - scaled by speedFactor so they don't rush in too fast in slow mode
           const attractionStrength = 0.00006 * (1 - p.z) * speedFactor;
           const forceX = dx * attractionStrength;
           const forceY = dy * attractionStrength;
@@ -144,16 +133,13 @@ const CanvasLoader = ({ message = "Loading...", reduceMotion = false }) => {
           p.vy += forceY;
         }
         
-        // Friction/Damping
         p.vx *= 0.96;
         p.vy *= 0.96;
         
-        // Apply gravity/downward movement
         p.y += p.speed + p.vy;
         p.x += p.vx;
 
         if (p.type === 'red') {
-          // Swirl effect
           const swirl = Math.sin((p.y * 0.02) + p.swirlOffset) * p.swirlAmp * (1 - p.z);
           p.x += swirl * 0.1;  
         }
@@ -162,14 +148,12 @@ const CanvasLoader = ({ message = "Loading...", reduceMotion = false }) => {
           p.rotation += p.rotationSpeed;
         }
 
-        // Reset if off screen
         if (p.y > canvas.height + 20) {
           Object.assign(p, createParticle(-20));
           p.x = Math.random() * canvas.width;
           p.initialX = p.x;
         }
 
-        // Horizontal wrapping
         if (p.x < -20) p.x = canvas.width + 20;
         if (p.x > canvas.width + 20) p.x = -20;
         
@@ -188,7 +172,6 @@ const CanvasLoader = ({ message = "Loading...", reduceMotion = false }) => {
           if (p.z < 0.6) {
             ctx.save();
             ctx.translate(p.x, p.y);
-            // Glint rotation speed scaled
             ctx.rotate((frame * 0.05 * speedFactor) + p.glintPhase);
             ctx.beginPath();
             ctx.strokeStyle = isDark ? '#FFFFFF' : '#000000'; 
@@ -262,10 +245,9 @@ const CanvasLoader = ({ message = "Loading...", reduceMotion = false }) => {
       window.removeEventListener('mousemove', handleMouseMove);
       cancelAnimationFrame(requestRef.current);
     };
-  }, [reduceMotion]); 
+  }, [reduceMotion, isDarkMode]); // Added isDarkMode dependency
 
-  const isDark = isDarkModeActive(canvasRef);
-  const containerBg = isDark ? 'bg-slate-950' : 'bg-slate-50';
+  const containerBg = isDarkMode ? 'bg-slate-950' : 'bg-slate-50';
 
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center ${containerBg}`}>
@@ -278,12 +260,12 @@ const CanvasLoader = ({ message = "Loading...", reduceMotion = false }) => {
         <h2 className={`text-4xl md:text-6xl font-bold text-transparent bg-clip-text mb-6 tracking-tight pb-2 ${
           modeRef.current === 'GOLD_RUSH' ? 'bg-gradient-to-r from-amber-300 to-yellow-500' :
           modeRef.current === 'RED_STORM' ? 'bg-gradient-to-r from-red-500 to-orange-500' :
-          (isDark ? 'bg-gradient-to-r from-sky-400 to-indigo-400' : 'bg-gradient-to-r from-slate-800 to-slate-600')
+          (isDarkMode ? 'bg-gradient-to-r from-sky-400 to-indigo-400' : 'bg-gradient-to-r from-slate-800 to-slate-600')
         } animate-pulse`}>
           Study Tracker
         </h2>
         
-        <p className={`text-lg font-light tracking-wide ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+        <p className={`text-lg font-light tracking-wide ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
           {message}
         </p>
       </div>
@@ -294,13 +276,11 @@ const CanvasLoader = ({ message = "Loading...", reduceMotion = false }) => {
 // ==========================================
 // OPTION 2: DOT LOADER (Floating Dots)
 // ==========================================
-const DotLoader = ({ message = "Loading...", reduceMotion = false }) => {
+const DotLoader = ({ message = "Loading...", reduceMotion = false, isDarkMode }) => {
   const mouse = useRef({ x: 0, y: 0 });
   const dotEls = useRef([]);
   
-  // Slow motion factor
   const speedFactor = reduceMotion ? 0.1 : 1;
-  // Invert speed to get duration multiplier (e.g. 0.75 speed = 1.33x duration)
   const durationMultiplier = 1 / speedFactor; 
   
   const dotPositions = useRef([
@@ -348,11 +328,9 @@ const DotLoader = ({ message = "Loading...", reduceMotion = false }) => {
         const el = dotEls.current[index];
 
         if (el) {
-          // Calculate attraction towards mouse
           const dx = mouse.current.x - pos.x;
           const dy = mouse.current.y - pos.y;
 
-          // Apply smooth following motion, scaled by speedFactor
           pos.x += dx * config.speed * speedFactor;
           pos.y += dy * config.speed * speedFactor;
 
@@ -373,7 +351,7 @@ const DotLoader = ({ message = "Loading...", reduceMotion = false }) => {
   }, [reduceMotion]);
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-50 dark:bg-gray-950 overflow-hidden cursor-none">
+    <div className={`fixed inset-0 z-[100] flex flex-col items-center justify-center overflow-hidden cursor-none ${isDarkMode ? 'bg-gray-950' : 'bg-slate-50'}`}>
       
       <style>{`
         @keyframes float-blue { 0% { transform: translate(0px, -60px) scale(1); } 33% { transform: translate(50px, 30px) scale(1.2); } 66% { transform: translate(-50px, 30px) scale(0.9); } 100% { transform: translate(0px, -60px) scale(1); } }
@@ -415,7 +393,7 @@ const DotLoader = ({ message = "Loading...", reduceMotion = false }) => {
               <div className={`${dot.size} relative ${dot.animation}`}>
                 {/* Vibrant colored background glow */}
                 <div className={`absolute inset-0 ${dot.color} rounded-full blur-2xl opacity-80`} />
-                <div className={`absolute inset-0 ${dot.color} rounded-full blur-xl opacity-60`} style={{ transform: 'scale(1.5)' }} />                                
+                <div className={`absolute inset-0 ${dot.color} rounded-full blur-xl opacity-60`} style={{ transform: 'scale(1.5)' }} />                                 
                 {/* Disco ball structure */}
                 <div className="absolute inset-0 rounded-full bg-gradient-to-br from-gray-100 via-gray-200 to-gray-400 shadow-2xl overflow-hidden border border-white/50">
                   <div className="absolute inset-0 grid grid-cols-6 grid-rows-6 gap-[1px] p-[1px]">
@@ -451,7 +429,7 @@ const DotLoader = ({ message = "Loading...", reduceMotion = false }) => {
                 </div>
               </div>
             ) : (
-              <div className={`${dot.size} ${dot.color} rounded-full shadow-xl ${dot.animation} opacity-80 mix-blend-multiply dark:mix-blend-screen blur-[1px]`} />
+              <div className={`${dot.size} ${dot.color} rounded-full shadow-xl ${dot.animation} ${isDarkMode ? 'mix-blend-screen blur-[1px]' : 'opacity-80 mix-blend-multiply'}`} />
             )}
           </div>
         ))}
@@ -461,11 +439,11 @@ const DotLoader = ({ message = "Loading...", reduceMotion = false }) => {
         <h2 className={`text-4xl md:text-6xl font-bold text-transparent bg-clip-text mb-6 tracking-tight pb-2 ${
           modeRef.current === 'DISCO' 
             ? 'bg-gradient-to-r from-red-500 via-red-600 to-red-700 animate-pulse' 
-            : 'bg-gradient-to-r from-slate-800 to-slate-600 dark:from-sky-400 dark:to-indigo-400 animate-pulse'
+            : (isDarkMode ? 'bg-gradient-to-r from-sky-400 to-indigo-400 animate-pulse' : 'bg-gradient-to-r from-slate-800 to-slate-600 animate-pulse')
         }`}>
           Study Tracker
         </h2>
-        <p className="text-lg font-light tracking-wide text-slate-700 dark:text-slate-300">
+        <p className={`text-lg font-light tracking-wide ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
           {message}
         </p>
       </div>
@@ -476,7 +454,7 @@ const DotLoader = ({ message = "Loading...", reduceMotion = false }) => {
 // ==========================================
 // OPTION 3: CORNER PULSE LOADER
 // ==========================================
-const CornerPulseLoader = ({ message, reduceMotion = false }) => {
+const CornerPulseLoader = ({ message, reduceMotion = false, isDarkMode }) => {
   const canvasRef = useRef(null);
   const requestRef = useRef();
 
@@ -536,7 +514,8 @@ const CornerPulseLoader = ({ message, reduceMotion = false }) => {
     const animate = () => {
       time++;
       
-      const isDark = isDarkModeActive(canvasRef);
+      // FIX: Use prop instead of querying DOM
+      const isDark = isDarkMode;
 
       const entranceDuration = 100;
       const progress = Math.min(time / entranceDuration, 1);
@@ -605,21 +584,23 @@ const CornerPulseLoader = ({ message, reduceMotion = false }) => {
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(requestRef.current);
     };
-  }, [reduceMotion]);
+  }, [reduceMotion, isDarkMode]); // Added isDarkMode dependency
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center ${isDarkMode ? 'bg-slate-950' : 'bg-slate-50'}`}>
       <canvas 
         ref={canvasRef} 
         className="absolute inset-0 w-full h-full"
       />
 
       <div className="relative z-10 text-center px-4">
-        <h2 className="text-4xl md:text-6xl font-bold text-transparent bg-clip-text mb-6 tracking-tight bg-gradient-to-r from-slate-800 to-slate-600 dark:from-sky-400 dark:to-indigo-400 pb-2 animate-pulse">
+        <h2 className={`text-4xl md:text-6xl font-bold text-transparent bg-clip-text mb-6 tracking-tight pb-2 animate-pulse ${
+          isDarkMode ? 'bg-gradient-to-r from-sky-400 to-indigo-400' : 'bg-gradient-to-r from-slate-800 to-slate-600'
+        }`}>
           Study Tracker
         </h2>
         
-        <p className="text-lg font-light tracking-wide text-slate-700 dark:text-slate-300">
+        <p className={`text-lg font-light tracking-wide ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
           {message}
         </p>
       </div>
@@ -630,7 +611,7 @@ const CornerPulseLoader = ({ message, reduceMotion = false }) => {
 // ==========================================
 // MAIN EXPORT: RANDOMIZER
 // ==========================================
-const LoadingScreen = ({ message, reduceMotion = false }) => {
+const LoadingScreen = ({ message, reduceMotion = false, isDarkMode }) => {
   const loaderVariant = useRef(null);
   if (!loaderVariant.current) {
     const rand = Math.random();
@@ -644,14 +625,14 @@ const LoadingScreen = ({ message, reduceMotion = false }) => {
   }
 
   if (loaderVariant.current === 'CANVAS') {
-    return <CanvasLoader message={message} reduceMotion={reduceMotion} />;
+    return <CanvasLoader message={message} reduceMotion={reduceMotion} isDarkMode={isDarkMode} />;
   }
   
   if (loaderVariant.current === 'DOTS') {
-    return <DotLoader message={message} reduceMotion={reduceMotion} />;
+    return <DotLoader message={message} reduceMotion={reduceMotion} isDarkMode={isDarkMode} />;
   }
 
-  return <CornerPulseLoader message={message} reduceMotion={reduceMotion} />;
+  return <CornerPulseLoader message={message} reduceMotion={reduceMotion} isDarkMode={isDarkMode} />;
 };
 
 export default LoadingScreen;

@@ -54,4 +54,26 @@ const ArcadeHUD = ({ score, lives, multiplier, maxLives = 3 }) => {
   );
 };
 
+// Place this component definition ABOVE ArcadeGameRoot
+const FloatingScoreItem = React.memo(({ id, amount, type, x, y }) => {
+  // Define styles based on score type
+  const style = {
+    position: 'absolute',
+    left: `${x}%`,
+    top: `${y}%`,
+    transform: 'translate(-50%, -50%)',
+    zIndex: 500,
+    fontSize: type === 'jackpot' ? '3rem' : '2rem',
+    color: type === 'damage' ? 'rgb(239, 68, 68)' : type === 'jackpot' ? 'rgb(250, 204, 21)' : 'rgb(52, 211, 153)',
+    textShadow: '0 0 10px rgba(0,0,0,0.8)',
+    animation: 'floatUp 2s forwards' // CSS animation defined in global styles or index.css
+  };
+
+  return (
+    <div key={id} style={style} className="font-pixel drop-shadow-lg opacity-0 animate-floatUp">
+      +{amount.toLocaleString()}
+    </div>
+  );
+});
+
 export default ArcadeHUD;

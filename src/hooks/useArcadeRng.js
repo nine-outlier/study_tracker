@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import { RNG_TABLES } from '../config/arcadeRngConfig';
+import { RNG_TABLES } from '../config/arcadeRngConfig.js';
 
 export const useArcadeRng = () => {
   // If we implement seed strings later, this ref will hold the PRNG state
@@ -45,10 +45,26 @@ export const useArcadeRng = () => {
     return roll(winChance, luckModifier);
   }, [roll]);
 
+  // NEW: Pick a random encounter based on probability weights
+  const getRandomEncounter = useCallback(() => {
+    const rand = Math.random();
+    let cumulative = 0;
+    
+    // Safety check if table is missing
+    if (!RNG_TABLES.ENCOUNTER_POOL) return 'DEVIL';
+
+    for (const [type, chance] of Object.entries(RNG_TABLES.ENCOUNTER_POOL)) {
+      cumulative += chance;
+      if (rand < cumulative) return type;
+    }
+    return 'DEVIL';
+  }, []);
+
   return {
     checkGodSeed,
     checkAngelSpawn,
     determineCheckpointEncounter,
-    resolveDevilGamble
+    resolveDevilGamble,
+    getRandomEncounter
   };
 };

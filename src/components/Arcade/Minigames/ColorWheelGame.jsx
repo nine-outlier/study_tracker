@@ -7,7 +7,7 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
   
   // --- Game State Refs ---
   const rotationAngle = useRef(Math.PI / 4); 
-  const menuSelectionIndex = useRef(0); 
+  const menuSelectionIndex = useRef(0); // Tracks 0-3 index for menu modes
   const particlesRef = useRef([]); 
   const starburstParticlesRef = useRef([]); 
 
@@ -16,6 +16,7 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
       targetIndex: 0,    
       inkColor: '#fff',
       
+      // Distraction Flags (Calculated per round)
       distractions: {
           spin: false,
           textOrbit: false,
@@ -32,6 +33,7 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
           inverted: false,       
           blur: false,           
           
+          // Menu Distractions
           retroMenu: false,      
           retroMenuType: 'none', 
           
@@ -42,8 +44,10 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
           directionalParticles: false 
       },
 
+      // Menu Data (Pre-generated for Stroop List)
       stroopMenuOptions: [], 
 
+      // Dynamic values for animations
       wheelRotationOffset: 0, 
       wheelPositionOffset: { x: 0, y: 0 },
       textOrbitOffset: { x: 0, y: 0 },
@@ -64,14 +68,14 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
   const [currentWord, setCurrentWord] = useState(''); 
   const [currentInk, setCurrentInk] = useState('#fff');
 
-  const bgColorRef = useRef({ bg: '#0f172a', trail: 'rgba(15, 23, 42, 0.2)' });
+  const bgColorRef = useRef({ bg: 'rgba(15, 23, 42, 1)', text: '#ffffff' });
 
   // Config
   const sliceColors = [
-      { name: 'RED', hex: '#ef4444', h: 0, s: 90, l: 60 },
-      { name: 'BLUE', hex: '#3b82f6', h: 220, s: 95, l: 60 },
-      { name: 'GREEN', hex: '#22c55e', h: 140, s: 80, l: 50 },
-      { name: 'YELLOW', hex: '#eab308', h: 45, s: 95, l: 50 }
+      { name: 'RED', hex: '#ef4444', h: 0, s: 80, l: 60 },
+      { name: 'BLUE', hex: '#3b82f6', h: 220, s: 90, l: 60 },
+      { name: 'GREEN', hex: '#22c55e', h: 140, s: 70, l: 50 },
+      { name: 'YELLOW', hex: '#eab308', h: 45, s: 90, l: 50 }
   ];
   
   const distractionColors = ['#a855f7', '#f97316', '#ec4899', '#14b8a6', '#6366f1'];
@@ -83,12 +87,10 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
       const isDark = root.classList.contains('dark');
       setIsDarkMode(isDark);
       
-      // We use a darker base for better glow effects regardless of theme, 
-      // but adapt UI text colors
       if (isDark) {
-        bgColorRef.current = { bg: '#020617', trail: 'rgba(2, 6, 23, 0.3)' };
+        bgColorRef.current = { bg: 'rgba(15, 23, 42, 1)', text: '#ffffff' };
       } else {
-        bgColorRef.current = { bg: '#0f172a', trail: 'rgba(15, 23, 42, 0.3)' }; // Keep dark bg for glow
+        bgColorRef.current = { bg: 'rgba(241, 245, 249, 1)', text: '#0f172a' };
       }
     };
     
@@ -103,7 +105,7 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
   const createOrbitParticle = (w, h, groupType) => {
       const z = Math.pow(Math.random(), 0.7); 
       const angle = Math.random() * Math.PI * 2;
-      const radiusBase = groupType === 'inner' ? 180 : 380; 
+      const radiusBase = groupType === 'inner' ? 150 : 350; 
       const radiusVar = Math.random() * 100;
       const baseSpeed = (1 - z) * 0.01 + 0.002; 
       const direction = groupType === 'inner' ? 1 : -1;
@@ -115,7 +117,7 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
         z: z,
         speed: baseSpeed * direction,
         radius: (1 - z) * 4 + 1, 
-        baseOpacity: (1 - z) * 0.5 + 0.1, // Subtler
+        baseOpacity: (1 - z) * 0.7 + 0.3,
         opacity: 0,
         opacityPhase: Math.random() * Math.PI * 2,
         color: distractionColors[Math.floor(Math.random() * distractionColors.length)],
@@ -125,7 +127,7 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
 
   const createColorHerdParticle = (w, h, reset = false) => {
       const z = Math.pow(Math.random(), 0.7);
-      const baseSpeed = (1 - z) * 14 + 2.0; // Slightly faster for pop
+      const baseSpeed = (1 - z) * 14 + 1.5;
       
       let x, y, vx, vy, angle;
 
@@ -135,11 +137,11 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
           
           if (reset) {
              if (Math.abs(dirX) > Math.abs(dirY)) {
-                 x = dirX > 0 ? -50 : w + 50;
+                 x = dirX > 0 ? -20 : w + 20;
                  y = Math.random() * h;
              } else {
                  x = Math.random() * w;
-                 y = dirY > 0 ? -50 : h + 50;
+                 y = dirY > 0 ? -20 : h + 20;
              }
           } else {
              x = Math.random() * w;
@@ -165,12 +167,12 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
       return {
           x, y, vx, vy, angle, z,
           speed: baseSpeed,
-          radius: (1 - z) * 4.0 + 1.0, // Larger particles
-          baseOpacity: (1 - z) * 0.8 + 0.2,
-          opacity: (1 - z) * 0.8 + 0.2,
+          radius: (1 - z) * 3.5 + 0.5,
+          baseOpacity: (1 - z) * 0.85 + 0.45,
+          opacity: (1 - z) * 0.85 + 0.45,
           opacityPhase: Math.random() * Math.PI * 2,
-          opacitySpeed: 0.05 + Math.random() * 0.05, // Faster pulse
-          color: Math.random() > 0.6 ? '#ffffff' : distractionColors[Math.floor(Math.random() * distractionColors.length)],
+          opacitySpeed: 0.02 + Math.random() * 0.03,
+          color: Math.random() > 0.5 ? '#ffffff' : distractionColors[Math.floor(Math.random() * distractionColors.length)],
       };
   };
 
@@ -181,7 +183,7 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
       particlesRef.current = p;
       
       const s = [];
-      for (let i = 0; i < 250; i++) { // Increased count slightly
+      for (let i = 0; i < 200; i++) {
           s.push(createColorHerdParticle(w, h, false));
       }
       starburstParticlesRef.current = s;
@@ -212,11 +214,14 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
 
       // --- CALCULATE DISTRACTIONS ---
       const d = {
+          // Common Visuals
           hueShimmer: Math.random() < 0.4,       
           textOrbit: Math.random() < 0.4,        
           directionalParticles: Math.random() < 0.5, 
           
+          // Menu Distractions
           retroMenu: Math.random() < 0.2, 
+          
           sideAd: Math.random() < 0.2,           
           handObstruct: Math.random() < 0.15,    
           cornerWheel: Math.random() < 0.02,     
@@ -250,19 +255,35 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
           
           gameState.current.stroopMenuOptions = sliceColors.map((sc, i) => {
               let ink = sliceColors[Math.floor(Math.random() * 4)].hex;
-              return { text: sc.name, ink: ink, realIndex: i };
+              return {
+                  text: sc.name,
+                  ink: ink,
+                  realIndex: i
+              };
           });
       } else {
           d.retroMenuType = 'none';
       }
 
-      if (d.cornerWheel) { d.wander = false; d.sideAd = false; d.largeText = false; }
-      if (d.blur) { d.smallText = false; d.textOrbit = false; }
+      if (d.cornerWheel) {
+          d.wander = false;
+          d.sideAd = false;
+          d.largeText = false;
+      }
+
+      if (d.blur) {
+          d.smallText = false;
+          d.textOrbit = false;
+      }
+
       if (d.smallText && d.largeText) d.largeText = false;
 
       if (d.directionalParticles) {
           const angle = Math.random() * Math.PI * 2;
-          gameState.current.particleDirection = { x: Math.cos(angle), y: Math.sin(angle) };
+          gameState.current.particleDirection = {
+              x: Math.cos(angle),
+              y: Math.sin(angle)
+          };
       }
       
       gameState.current.handPosition = {
@@ -340,11 +361,13 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
               if (round < 3) {
                   initRound(round + 1);
               } else {
+                  // Win Condition: Completed 3 rounds
                   onComplete(true, 40); 
               }
-          }, 200); 
+          }, 200); // Standardized to 200ms
       } else {
           setMessage('WRONG!');
+          // Lose Condition: Immediate Failure
           setTimeout(() => onComplete(false), 1000); 
       }
   };
@@ -424,17 +447,19 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
       const maxDist = Math.sqrt(width*width + height*height) / 2;
       const d = gameState.current.distractions; 
 
-      // 1. Clear with "Trail" effect
-      ctx.fillStyle = bgColorRef.current.trail;
-      ctx.fillRect(0,0, width, height);
-
-      // 2. Physics & Logic Updates
+      // --- 1. Event Triggers ---
       if (!isLocked && !adActive && d.adsEnabled) {
-          if (Math.random() < 0.005) setAdActive(true);
+          if (Math.random() < 0.005) { 
+             setAdActive(true);
+          }
       }
 
-      if (d.spin) gameState.current.wheelRotationOffset += Math.sin(frame * 0.02) * 0.05; 
-      else gameState.current.wheelRotationOffset *= 0.95;
+      // --- 2. Update Physics ---
+      if (d.spin) {
+          gameState.current.wheelRotationOffset += Math.sin(frame * 0.02) * 0.05; 
+      } else {
+          gameState.current.wheelRotationOffset *= 0.95;
+      }
 
       if (d.wander) {
           gameState.current.wheelPositionOffset.x = Math.sin(frame * 0.03) * (width * 0.15);
@@ -445,30 +470,45 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
       }
 
       let baseX = cx, baseY = cy;
-      if (d.cornerWheel) { baseX = width * 0.8; baseY = height * 0.8; }
+      if (d.cornerWheel) {
+          baseX = width * 0.8;
+          baseY = height * 0.8;
+      }
 
       const finalWx = baseX + gameState.current.wheelPositionOffset.x;
       const finalWy = baseY + gameState.current.wheelPositionOffset.y;
 
-      // Update HTML Text Transform
+      // Update Text Position
       if (textRef.current) {
           let tx = gameState.current.wheelPositionOffset.x;
           let ty = gameState.current.wheelPositionOffset.y;
-          if (d.cornerWheel) { tx += (baseX - cx); ty += (baseY - cy); }
+          
+          if (d.cornerWheel) {
+             tx += (baseX - cx);
+             ty += (baseY - cy);
+          }
+
           if (d.textOrbit) {
               const orbitR = 50;
               tx += Math.cos(frame * 0.1) * orbitR;
               ty += Math.sin(frame * 0.1) * orbitR;
           }
+          
           let transform = `translate(${tx}px, ${ty}px)`;
           if (d.mirrorText) transform += ` scaleX(-1)`;
           if (d.smallText) transform += ` scale(0.5)`;
           if (d.largeText) transform += ` scale(1.5)`;
+
           textRef.current.style.transform = transform;
       }
 
-      // 3. Render Particles (Background - Orbital)
-      ctx.globalCompositeOperation = 'lighter'; // GLOW MODE
+      // --- 3. Render Background ---
+      ctx.fillStyle = bgColorRef.current.bg;
+      ctx.fillRect(0,0, width, height);
+
+      // --- 4. Render Particles ---
+      
+      // A) Orbital
       particlesRef.current.forEach(p => {
           p.angle += p.speed;
           const px = cx + Math.cos(p.angle) * p.orbitRadius;
@@ -485,44 +525,41 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
           ctx.fill();
       });
 
-      // 4. Render Particles (Active - Starburst)
+      // B) Active/ColorHerd
       starburstParticlesRef.current.forEach(p => {
           p.opacityPhase += p.opacitySpeed;
           const opacityVariation = Math.sin(p.opacityPhase) * 0.3;
           p.opacity = p.baseOpacity + opacityVariation;
+
           p.x += p.vx;
           p.y += p.vy;
           
           let respawn = false;
           if (d.directionalParticles) {
               const margin = 50;
-              if (p.x < -margin || p.x > width + margin || p.y < -margin || p.y > height + margin) respawn = true;
+              if (p.x < -margin || p.x > width + margin || p.y < -margin || p.y > height + margin) {
+                  respawn = true;
+              }
           } else {
               const dx = p.x - cx;
               const dy = p.y - cy;
               if (Math.sqrt(dx*dx + dy*dy) > maxDist) respawn = true;
           }
 
-          if (respawn) Object.assign(p, createColorHerdParticle(width, height, true));
+          if (respawn) {
+               Object.assign(p, createColorHerdParticle(width, height, true));
+          }
           
           ctx.globalAlpha = Math.max(0, Math.min(1, p.opacity));
           ctx.fillStyle = p.color;
-          ctx.shadowBlur = 10; // Intense glow
-          ctx.shadowColor = p.color;
-          
           ctx.beginPath();
-          const stretchFactor = 1 + (p.speed * 0.1);
+          const stretchFactor = 1 + (p.speed * 0.05);
           ctx.ellipse(p.x, p.y, p.radius, p.radius * stretchFactor, p.angle, 0, Math.PI * 2);
           ctx.fill();
-          
-          // Reset shadow for performance
-          ctx.shadowBlur = 0;
       });
-      
-      ctx.globalCompositeOperation = 'source-over'; // Reset blend mode for UI
       ctx.globalAlpha = 1.0;
 
-      // 5. Render Wheel / Menu
+      // --- 5. RENDER MENU or WHEEL ---
       ctx.save();
       ctx.translate(finalWx, finalWy);
       
@@ -532,55 +569,48 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
       }
 
       if (d.retroMenu) {
-          // --- RETRO MENU RENDER ---
+          // --- MENU MODE RENDER ---
+          
           if (d.retroMenuType === 'windows95') {
-              const winW = 320; const winH = 260;
-              const topX = -winW/2; const topY = -winH/2;
+              // RETRO WINDOW STYLE
+              const winW = 300;
+              const winH = 250;
+              const topX = -winW/2;
+              const topY = -winH/2;
 
-              // Shadow for window
-              ctx.shadowColor = 'rgba(0,0,0,0.5)';
-              ctx.shadowBlur = 20;
-              
               ctx.fillStyle = '#c0c0c0';
               ctx.fillRect(topX, topY, winW, winH);
-              ctx.shadowBlur = 0; // Reset shadow
+              
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(topX, topY, winW, 2);
+              ctx.fillRect(topX, topY, 2, winH);
+              
+              ctx.fillStyle = '#404040';
+              ctx.fillRect(topX, topY + winH - 2, winW, 2);
+              ctx.fillRect(topX + winW - 2, topY, 2, winH);
 
-              // 3D Bevels
-              ctx.fillStyle = '#ffffff'; // Light edge
-              ctx.fillRect(topX, topY, winW, 2); ctx.fillRect(topX, topY, 2, winH);
-              ctx.fillStyle = '#404040'; // Dark edge
-              ctx.fillRect(topX, topY + winH - 2, winW, 2); ctx.fillRect(topX + winW - 2, topY, 2, winH);
-
-              // Header
               ctx.fillStyle = '#000080';
               ctx.fillRect(topX + 4, topY + 4, winW - 8, 25);
               ctx.fillStyle = '#ffffff';
-              ctx.font = 'bold 14px monospace';
+              ctx.font = 'bold 16px monospace';
               ctx.textAlign = 'left';
-              ctx.fillText('COLOR_SYSTEM_ERROR.EXE', topX + 8, topY + 20);
+              ctx.fillText('COLOR_SYS.EXE', topX + 8, topY + 20);
               
               ctx.textAlign = 'center';
               ctx.font = 'bold 20px monospace';
               
               sliceColors.forEach((col, i) => {
-                  const btnY = topY + 50 + (i * 48);
+                  const btnY = topY + 50 + (i * 45);
                   const isSelected = (i === menuSelectionIndex.current);
                   
                   ctx.fillStyle = isSelected ? '#a0a0a0' : '#c0c0c0';
                   ctx.fillRect(topX + 20, btnY, winW - 40, 35);
                   
-                  // Selected visual
                   if (isSelected) {
                       ctx.strokeStyle = '#000000';
                       ctx.setLineDash([2, 2]);
                       ctx.strokeRect(topX + 24, btnY + 4, winW - 48, 27);
                       ctx.setLineDash([]);
-                  } else {
-                       // Unselected bevel
-                       ctx.fillStyle = '#ffffff';
-                       ctx.fillRect(topX+20, btnY, winW-40, 2); ctx.fillRect(topX+20, btnY, 2, 35);
-                       ctx.fillStyle = '#404040';
-                       ctx.fillRect(topX+20, btnY+33, winW-40, 2); ctx.fillRect(topX+winW-22, btnY, 2, 35);
                   }
                   
                   ctx.fillStyle = '#000000';
@@ -588,44 +618,36 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
               });
 
           } else {
-              // STROOP LIST
-              ctx.shadowColor = 'black';
-              ctx.shadowBlur = 20;
-              ctx.fillStyle = 'rgba(20, 20, 30, 0.9)';
-              ctx.fillRect(-160, -160, 320, 320);
+              // STROOP LIST STYLE
+              ctx.fillStyle = 'rgba(0,0,0,0.8)';
+              ctx.fillRect(-150, -150, 300, 300);
               ctx.strokeStyle = '#ffffff';
-              ctx.lineWidth = 2;
-              ctx.strokeRect(-160, -160, 320, 320);
-              ctx.shadowBlur = 0;
+              ctx.strokeRect(-150, -150, 300, 300);
 
-              ctx.font = '900 32px monospace';
+              ctx.font = '900 30px monospace';
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
               
               gameState.current.stroopMenuOptions.forEach((opt, i) => {
-                  const yOff = (i - 1.5) * 65;
+                  const yOff = (i - 1.5) * 60;
                   const isSelected = (i === menuSelectionIndex.current);
 
                   if (isSelected) {
-                      ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-                      ctx.fillRect(-150, yOff - 30, 300, 60);
+                      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+                      ctx.fillRect(-140, yOff - 30, 280, 60);
+                      
                       ctx.fillStyle = '#ffffff';
-                      ctx.font = '900 40px monospace'; // Bigger when selected
-                      ctx.fillText('>', -120, yOff);
-                      ctx.fillText('<', 120, yOff);
-                      ctx.font = '900 32px monospace'; // Reset
+                      ctx.fillText('>', -100, yOff);
+                      ctx.fillText('<', 100, yOff);
                   }
 
-                  ctx.shadowColor = opt.ink;
-                  ctx.shadowBlur = 10;
                   ctx.fillStyle = opt.ink; 
                   ctx.fillText(opt.text, 0, yOff); 
-                  ctx.shadowBlur = 0;
               });
           }
 
       } else {
-          // --- FANCY WHEEL RENDER ---
+          // --- STANDARD WHEEL RENDER ---
           ctx.rotate(gameState.current.wheelRotationOffset); 
 
           let cursorRelAngle = rotationAngle.current - gameState.current.wheelRotationOffset;
@@ -641,49 +663,40 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
               
               const base = sliceColors[i];
               let hue = base.h;
-              if (d.hueShimmer) hue = base.h + Math.sin(frame * 0.1 + i) * 20; 
+              if (d.hueShimmer) {
+                   hue = base.h + Math.sin(frame * 0.1 + i) * 20; 
+              }
               
-              // Gradient Slice
-              const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
-              grad.addColorStop(0, `hsla(${hue}, ${base.s}%, 10%, 1)`); // Dark center
-              grad.addColorStop(0.6, `hsla(${hue}, ${base.s}%, ${base.l}%, 1)`); // Bright Mid
-              grad.addColorStop(1, `hsla(${hue}, ${base.s}%, 20%, 1)`); // Dark Rim
+              ctx.fillStyle = `hsl(${hue}, ${base.s}%, ${base.l}%)`;
               
-              ctx.fillStyle = grad;
-              
-              let alpha = 0.3; // Dimmer inactive
+              let alpha = 0.2;
               if (activeSlice === i) alpha = 1.0;
               if (d.spotlight && activeSlice !== i) alpha = 0.05;
               
               ctx.globalAlpha = alpha;
-              
               if (alpha === 1.0) {
-                 ctx.shadowBlur = 40; // Mega Glow
-                 ctx.shadowColor = `hsla(${hue}, ${base.s}%, ${base.l}%, 1)`;
+                 ctx.shadowBlur = 30;
+                 ctx.shadowColor = ctx.fillStyle;
               } else {
                  ctx.shadowBlur = 0;
               }
               ctx.fill();
           }
 
-          // Cursor (Neon Style)
           const drawAng = rotationAngle.current - gameState.current.wheelRotationOffset;
-          const tipX = Math.cos(drawAng) * (radius + 25);
-          const tipY = Math.sin(drawAng) * (radius + 25);
+          const tipX = Math.cos(drawAng) * (radius + 20);
+          const tipY = Math.sin(drawAng) * (radius + 20);
           
           ctx.globalAlpha = 1.0;
+          ctx.shadowBlur = 0;
           ctx.beginPath();
           ctx.moveTo(0, 0);
           ctx.lineTo(tipX, tipY);
-          ctx.strokeStyle = '#ffffff';
+          ctx.strokeStyle = isDarkMode ? '#ffffff' : '#1e293b';
           ctx.lineWidth = 6;
           ctx.lineCap = 'round';
-          ctx.shadowBlur = 15;
-          ctx.shadowColor = '#ffffff';
           ctx.stroke();
-          ctx.shadowBlur = 0;
           
-          // Ghost Cursor
           if (d.ghostCursor) {
               const ghostAng = drawAng + Math.PI + Math.sin(frame * 0.1);
               const gX = Math.cos(ghostAng) * (radius + 20);
@@ -692,47 +705,39 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
               ctx.beginPath();
               ctx.moveTo(0, 0);
               ctx.lineTo(gX, gY);
-              ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+              ctx.strokeStyle = isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(30,41,59,0.3)';
               ctx.lineWidth = 4;
               ctx.setLineDash([10, 10]); 
               ctx.stroke();
               ctx.setLineDash([]);
           }
           
-          // Glassy Hub
           ctx.beginPath();
           ctx.arc(0, 0, radius * 0.45, 0, Math.PI * 2);
-          ctx.fillStyle = '#0f172a';
+          ctx.fillStyle = isDarkMode ? '#0f172a' : '#f1f5f9'; 
           ctx.fill();
-          // Hub Rim
-          ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-          ctx.lineWidth = 2;
-          ctx.stroke();
       }
 
       ctx.restore(); 
 
-      // 6. Obscuring Hand
+      // --- 9. Obscuring Hand ---
       if (d.handObstruct) {
           ctx.font = '150px serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.shadowBlur = 20;
-          ctx.shadowColor = 'black';
           ctx.fillText('👈', finalWx + 100 + gameState.current.handPosition.x, finalWy + gameState.current.handPosition.y);
-          ctx.shadowBlur = 0;
       }
 
-      // 7. Spotlight Overlay
+      // --- 10. Spotlight Overlay ---
       if (d.spotlight) {
           ctx.save();
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.98)'; // Darker
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.95)';
           ctx.beginPath();
           ctx.rect(0, 0, width, height);
           
-          const grad = ctx.createRadialGradient(finalWx, finalWy, radius * 0.4, finalWx, finalWy, radius * 1.6);
+          const grad = ctx.createRadialGradient(finalWx, finalWy, radius * 0.5, finalWx, finalWy, radius * 1.5);
           grad.addColorStop(0, 'rgba(0,0,0,0)'); 
-          grad.addColorStop(1, 'rgba(0,0,0,1)'); 
+          grad.addColorStop(1, 'rgba(0,0,0,0.98)'); 
           
           ctx.fillStyle = grad;
           ctx.fill();
@@ -755,22 +760,11 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
     <div className={`absolute inset-0 w-full h-full overflow-hidden transition-all duration-500 ${d.inverted ? 'invert' : ''} ${d.blur ? 'blur-sm' : ''}`} 
          style={{ backgroundColor: bgColorRef.current.bg }}>
         
-        {/* Vignette Overlay */}
-        <div className="absolute inset-0 pointer-events-none z-0" style={{
-            background: 'radial-gradient(circle, rgba(0,0,0,0) 50%, rgba(0,0,0,0.6) 100%)'
-        }}></div>
-
-        {/* Scanline Overlay */}
-        <div className="absolute inset-0 pointer-events-none z-0 opacity-[0.03]" style={{
-            background: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06))',
-            backgroundSize: '100% 2px, 3px 100%'
-        }}></div>
-        
         <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
 
         {/* Side Ad Banner */}
         {d.sideAd && (
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-32 h-96 bg-yellow-200 border-l-4 border-yellow-500 flex flex-col items-center justify-center p-2 text-center animate-pulse z-20 shadow-2xl">
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-32 h-96 bg-yellow-200 border-l-4 border-yellow-500 flex flex-col items-center justify-center p-2 text-center animate-pulse z-20">
                 <div className="text-4xl mb-2">💰</div>
                 <div className="font-black text-red-600 text-xl leading-tight">WIN BIG!</div>
                 <div className="text-xs mt-2 text-slate-700">CLICK HERE FOR FREE PRIZES</div>
@@ -782,10 +776,10 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
             
             {/* Header */}
             <div className="text-center">
-                <div className="text-2xl font-black drop-shadow-[0_0_10px_rgba(255,255,255,0.5)] tracking-widest text-white">
+                <div className={`text-2xl font-black drop-shadow-lg tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                     ROUND {round}/3
                 </div>
-                <div className="text-sm font-bold tracking-[0.3em] mt-2 opacity-70 text-white drop-shadow-md">
+                <div className={`text-sm font-bold tracking-[0.3em] mt-2 opacity-50 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                     {d.reverseControls ? "CONTROLS REVERSED!" : (d.retroMenu ? "USE ARROW KEYS" : "IGNORE THE INK")}
                 </div>
             </div>
@@ -795,17 +789,17 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
                 <div ref={textRef} className="flex flex-col items-center justify-center transition-transform duration-75 will-change-transform">
                     {!message && (
                         <h1 
-                            className="text-6xl md:text-8xl font-black drop-shadow-[0_0_30px_rgba(255,255,255,0.4)]"
+                            className="text-5xl md:text-7xl font-black drop-shadow-2xl"
                             style={{ 
                                 color: currentInk,
-                                textShadow: '0 0 40px currentColor' // Neon Glow on text
+                                textShadow: isDarkMode ? '0 0 20px rgba(0,0,0,0.5)' : '0 0 20px rgba(255,255,255,0.8)'
                             }}
                         >
                             {currentWord}
                         </h1>
                     )}
                     {message && (
-                        <h1 className="text-7xl font-black drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] animate-bounce text-white">
+                        <h1 className={`text-7xl font-black drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] animate-bounce ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                             {message}
                         </h1>
                     )}
@@ -814,21 +808,28 @@ const ColorWheelGame = ({ onComplete = () => {}, difficulty }) => {
 
             {/* Footer */}
             <div className="text-center pb-8">
-                <div className="text-7xl font-mono font-bold mb-4 text-white/20">
+                <div className={`text-7xl font-mono font-bold mb-4 ${isDarkMode ? 'text-white/30' : 'text-slate-900/30'}`}>
                     {timer.toFixed(1)}
                 </div>
-                <div className="flex justify-center gap-8 text-xs font-bold tracking-[0.2em] text-slate-400">
+                <div className={`flex justify-center gap-8 text-xs font-bold tracking-[0.2em] ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                     <span>[←] LEFT</span>
-                    <span className="text-white drop-shadow-[0_0_5px_white]">[SPACE] SELECT</span>
+                    <span className={isDarkMode ? 'text-white' : 'text-slate-900'}>[SPACE] SELECT</span>
                     <span>[→] RIGHT</span>
                 </div>
+                
+                {/* INVERTED WARNING */}
+                {d.inverted && (
+                    <div className="mt-4 text-lg font-black text-red-500 animate-pulse uppercase tracking-widest drop-shadow-lg">
+                        ⚠️ INVERTED COLORS! ⚠️
+                    </div>
+                )}
             </div>
         </div>
 
         {/* MOCK POPUP AD */}
         {adActive && (
             <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm pointer-events-auto animate-in fade-in zoom-in duration-200">
-                <div className="bg-white p-8 max-w-md text-center border-4 border-red-500 shadow-[0_0_100px_rgba(239,68,68,0.8)] rotate-2">
+                <div className="bg-white p-8 max-w-md text-center border-4 border-red-500 shadow-[0_0_50px_rgba(239,68,68,0.5)] rotate-2">
                     <h2 className="text-4xl font-black text-red-600 mb-4 uppercase tracking-tighter">WARNING!</h2>
                     <p className="text-slate-900 font-bold text-lg mb-6">
                         SYSTEM OVERLOAD DETECTED. <br/>

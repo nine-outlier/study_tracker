@@ -24,7 +24,7 @@ const Navigation = ({
     }
   };
 
-  // Logic for the "Add Certification" button (Breadcrumb creator)
+  // Logic for the "Add Certification" button
   const handleAddCertClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -36,98 +36,95 @@ const Navigation = ({
   const certKeys = Object.keys(examData || {});
 
   return (
-    <div className="mb-6">
-      {/* Certification Tabs Row */}
-      <div className="flex items-center border-b border-slate-200 dark:border-gray-800 mb-4">
+    <div className="mb-6 space-y-4">
+      {/* 1. Certification Selector (Pill Style) */}
+      <div className="flex items-center space-x-3 overflow-x-auto pb-2 custom-scrollbar">
+        {certKeys.length === 0 ? (
+           <span className="py-2 text-sm app-text-muted italic px-4">No certifications configured.</span>
+        ) : (
+            certKeys.map((certKey) => {
+                const isActive = activeCert === certKey;
+                const cert = examData[certKey];
+                return (
+                    <button
+                        key={certKey}
+                        onClick={() => onCertChange(certKey)}
+                        // Use Palette Slot 27 (Bg) and Slot 28 (Text) for Active State
+                        style={isActive ? { 
+                            backgroundColor: 'var(--app-pure-white)', 
+                            color: 'var(--app-pure-black)',
+                            borderColor: 'var(--app-pure-white)'
+                        } : {}}
+                        className={`
+                            flex-shrink-0 px-4 py-2 rounded-lg text-sm font-bold transition-all border
+                            ${isActive 
+                                ? 'shadow-md scale-105' 
+                                : 'app-bg-surface app-text-muted app-border-muted hover:opacity-80'
+                            }
+                        `}
+                    >
+                        {cert?.shortName || cert?.fullName || certKey}
+                    </button>
+                );
+            })
+        )}
         
-        {/* Scrollable Container for Certs (Hidden Scrollbar) */}
-        <div className="flex overflow-x-auto no-scrollbar flex-grow space-x-2 pr-2">
-            {certKeys.length === 0 ? (
-            <span className="py-2 text-sm text-slate-500 dark:text-slate-400 italic px-4">
-                No certifications configured.
-            </span>
-            ) : (
-            certKeys.map((certKey) => (
-                <button
-                key={certKey}
-                type="button"
-                onClick={() => onCertChange(certKey)}
-                className={`px-4 py-2 -mb-px text-sm font-medium border-b-2 whitespace-nowrap transition-colors flex-shrink-0
-                    ${
-                    activeCert === certKey
-                        ? 'border-sky-500 text-sky-600 dark:border-sky-400 dark:text-sky-400'
-                        : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-gray-700'
-                    }`}
-                >
-                {examData[certKey]?.shortName || examData[certKey]?.fullName || certKey}
-                </button>
-            ))
-            )}
-        </div>
-
-        {/* Fixed "Add Cert" Button - Stays visible on the right */}
-        <div className="pl-2 border-l border-slate-200 dark:border-gray-700 flex-shrink-0">
-            <button
-            type="button"
+        <button
             onClick={handleAddCertClick}
-            className="p-2 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 transition-colors rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
-            title="Add New Certification"
-            >
+            className="flex-shrink-0 w-9 h-9 rounded-lg border-2 border-dashed app-border-muted flex items-center justify-center app-text-muted hover:app-text-primary hover:app-border-primary transition-colors"
+            title="Add Certification"
+        >
             <PlusIcon className="w-5 h-5" />
-            </button>
-        </div>
+        </button>
       </div>
 
-      {/* Section Tabs (Overview, Priority, etc.) */}
-      <div className="flex space-x-1 bg-slate-100 dark:bg-gray-950 rounded-lg p-1 overflow-x-auto no-scrollbar">
+      {/* 2. Section Tabs (Thin Line Style - Removed Thick Bar) */}
+      <div className="flex border-b app-border-muted space-x-6 overflow-x-auto custom-scrollbar">
         {mainTabs.map((tab) => (
           <button
             key={tab}
-            type="button"
             onClick={() => handleTabClick(tab)}
-            className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap
-              ${
-                activeTab === tab
-                  ? 'font-semibold bg-white text-slate-900 dark:bg-gray-800 dark:text-slate-100 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-200 dark:hover:bg-gray-800'
-              }`}
+            className={`
+              pb-3 text-sm font-medium capitalize transition-colors relative whitespace-nowrap
+              ${activeTab === tab ? 'app-text-primary' : 'app-text-muted hover:app-text-main'}
+            `}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {activeTab === tab && (
+              <span className="absolute bottom-0 left-0 w-full h-0.5 app-bg-primary rounded-t-full" />
+            )}
           </button>
         ))}
 
-        {showAllTabs &&
-          moreTabs.map((tab) => (
+        {showAllTabs && moreTabs.map((tab) => (
             <button
-              key={tab}
-              type="button"
-              onClick={() => handleTabClick(tab)}
-              className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap
-                ${
-                  activeTab === tab
-                    ? 'font-semibold bg-white text-slate-900 dark:bg-gray-800 dark:text-slate-100 shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-200 dark:hover:bg-gray-800'
-                }`}
+                key={tab}
+                onClick={() => handleTabClick(tab)}
+                className={`
+                    pb-3 text-sm font-medium capitalize transition-colors relative whitespace-nowrap
+                    ${activeTab === tab ? 'app-text-primary' : 'app-text-muted hover:app-text-main'}
+                `}
             >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {activeTab === tab && (
+                    <span className="absolute bottom-0 left-0 w-full h-0.5 app-bg-primary rounded-t-full" />
+                )}
             </button>
-          ))}
+        ))}
 
         {!showAllTabs && moreTabs.length > 0 && (
-          <div className="relative flex-shrink-0">
-            <button
-              type="button"
-              onClick={() => setShowAllTabs(true)}
-              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors 
-                ${
-                  moreTabs.includes(activeTab)
-                    ? 'font-semibold bg-white text-slate-900 dark:bg-gray-800 dark:text-slate-100 shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-200 dark:hover:bg-gray-800'
-                }`}
-            >
-              ...
-            </button>
-          </div>
+             <button
+             onClick={() => setShowAllTabs(true)}
+             className={`
+               pb-3 text-sm font-medium capitalize transition-colors relative whitespace-nowrap
+               ${moreTabs.includes(activeTab) ? 'app-text-primary' : 'app-text-muted hover:app-text-main'}
+             `}
+           >
+             ...
+             {moreTabs.includes(activeTab) && (
+               <span className="absolute bottom-0 left-0 w-full h-0.5 app-bg-primary rounded-t-full" />
+             )}
+           </button>
         )}
       </div>
     </div>

@@ -1,8 +1,9 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useLayoutEffect, Suspense, lazy } from 'react';
 import { loadData, saveData } from './utils/fileStorage.js';
 import { calculatePercentage, calculateWeightedAverage, calculateRawAverage, calculateTrendSlope, generateId } from './utils/helpers.js';
-import { getScoreClass, getReviewClass, getMasteredClass, NORMAL_COLORS, COLORBLIND_SAFE_COLORS } from './utils/themeHelpers.js';
+import { getScoreClass, getReviewClass, getMasteredClass, getTopicColorClasses, getChartColors, getTrendLineColor, getTrendColorClass, getAxisColors } from './utils/themeHelpers.js';
 import { config, allExamData, DEFAULT_SETTINGS } from './config/appConfig.js';
+import { applyTheme, injectThemeStyles, getActiveGradient } from './utils/themeManager.js';
 
 import StatsCard from './components/UI/StatsCard.jsx';
 import Navigation from './components/UI/Navigation.jsx';
@@ -21,13 +22,23 @@ import AddCertModal from './components/Modals/AddCertModal.jsx';
 import OnboardingModal from './components/Modals/OnboardingModal.jsx';
 import LoadingScreen from './components/UI/LoadingScreen.jsx';
 import SettingsFab from './components/UI/SettingsFab.jsx';
+import ArcadeGameRoot from './components/Arcade/ArcadeGameRoot.jsx';
+import TrophyIcon from './components/UI/TrophyIcon.jsx';
+import ThemeEffects from './components/UI/ThemeEffects.jsx';
+import OverviewSection from './components/Sections/OverviewSection.jsx';
 import { PlusIcon } from './components/UI/Icons.jsx';
+
+// --- LAZY LOAD OPTIMIZATION ---
+// Replaced static import with lazy import to prevent main thread blocking on initial load
+const NetworkPlusGuide = lazy(() => import('./PremadeStudy/NetworkPlus.jsx'));
+const QuizApp = lazy(() => import('./PremadeStudy/QuizApp.jsx'));
+
+const DARK_THEMES = ['midnight'];
 
 const useCertificationMetrics = (certData, trendFilter, weights, appSettings) => {
   return useMemo(() => {
     if (!certData) return null;
     
-    const CURRENT_COLORS = appSettings.colorblindMode ? COLORBLIND_SAFE_COLORS : NORMAL_COLORS;
     const allTests = (certData.tests || []).filter(t => !t.isDeleted);
     const allDomainsData = (certData.domains || []).filter(d => !d.isDeleted);
     const activeDomains = allDomainsData.map(d => d.name);
@@ -125,12 +136,13 @@ const useCertificationMetrics = (certData, trendFilter, weights, appSettings) =>
       if (data.scores.length === 0) continue;
       validDomains++;
 
-      // WEIGHTED calculations
       const weightedAvgScore = data.totalWeight > 0 ? Math.round(data.weightedScoreSum / data.totalWeight) : 0;
+      const rawAvgScore = data.rawScoreCount > 0 ? Math.round(data.rawScoreSum / data.rawScoreCount) : 0;
       const numScores = data.scores.length;
       const latestAccuracy = data.scores[numScores - 1];
 
       weightedDomainStats.push({ domain: data.domain, accuracy: weightedAvgScore, scores: data.scores });
+      rawDomainStats.push({ domain: data.domain, accuracy: rawAvgScore, scores: data.scores });
 
       const isWeightedMastered = numScores >= config.MIN_ATTEMPTS_FOR_MASTERY && latestAccuracy >= config.MASTERY_LATEST_SCORE_THRESHOLD && weightedAvgScore >= config.MASTERY_AVG_THRESHOLD;
       if (isWeightedMastered) { weightedMasteryTiers['Mastered']++; weightedMasteredCount++; }
@@ -139,26 +151,22 @@ const useCertificationMetrics = (certData, trendFilter, weights, appSettings) =>
       else if (weightedAvgScore >= 40) weightedMasteryTiers['Weak']++;
       else weightedMasteryTiers['Critical']++;
 
+      const isRawMastered = numScores >= config.MIN_ATTEMPTS_FOR_MASTERY && latestAccuracy >= config.MASTERY_LATEST_SCORE_THRESHOLD && rawAvgScore >= config.MASTERY_AVG_THRESHOLD;
+      if (isRawMastered) { rawMasteryTiers['Mastered']++; rawMasteredCount++; }
+      else if (rawAvgScore >= 80) rawMasteryTiers['Strong']++;
+      else if (rawAvgScore >= 60) rawMasteryTiers['Developing']++;
+      else if (rawAvgScore >= 40) rawMasteryTiers['Weak']++;
+      else rawMasteryTiers['Critical']++;
+
+
       const priorityData = { domain: domainName, accuracy: latestAccuracy, totalQuestions: data.totalQuestions };
       if (weightedAvgScore < config.PASSING_SCORE) {
         weightedPriorityDomains.push({ ...priorityData, weightedAvg: weightedAvgScore, priority: (100 - weightedAvgScore) * data.totalQuestions });
       }
       
-      // RAW (unweighted) calculations
       if (data.rawScoreCount > 0) {
           const rawAvg = Math.round(data.rawScoreSum / data.rawScoreCount);
-          rawDomainStats.push({ domain: data.domain, accuracy: rawAvg, scores: data.scores });
-          
-          const isRawMastered = numScores >= config.MIN_ATTEMPTS_FOR_MASTERY && latestAccuracy >= config.MASTERY_LATEST_SCORE_THRESHOLD && rawAvg >= config.MASTERY_AVG_THRESHOLD;
-          if (isRawMastered) { rawMasteryTiers['Mastered']++; rawMasteredCount++; }
-          else if (rawAvg >= 80) rawMasteryTiers['Strong']++;
-          else if (rawAvg >= 60) rawMasteryTiers['Developing']++;
-          else if (rawAvg >= 40) rawMasteryTiers['Weak']++;
-          else rawMasteryTiers['Critical']++;
-          
-          if (rawAvg < config.PASSING_SCORE) {
-              rawPriorityDomains.push({ ...priorityData, weightedAvg: rawAvg, priority: (100 - rawAvg) * data.totalQuestions });
-          }
+          rawPriorityDomains.push({ ...priorityData, weightedAvg: rawAvg, priority: (100 - rawAvg) * data.totalQuestions });
       }
     }
     
@@ -166,10 +174,11 @@ const useCertificationMetrics = (certData, trendFilter, weights, appSettings) =>
     rawPriorityDomains.sort((a, b) => b.priority - a.priority);
 
     const buildMasteryData = (tiers) => Object.entries(tiers).map(([label, count], index) => ({
-      label: label, count, percentage: calculatePercentage(count, validDomains || 1), color: CURRENT_COLORS[index] 
+      label: label, count, percentage: calculatePercentage(count, validDomains || 1)
     })).filter(item => item.count > 0);
 
     const weightedMasteryData = buildMasteryData(weightedMasteryTiers);
+    const rawMasteryData = buildMasteryData(rawMasteryTiers);
     
     const filteredTrendData = trendDataForStats.filter(d => trendFilter[d.type]);
     const trendData = filteredTrendData.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -190,10 +199,8 @@ const useCertificationMetrics = (certData, trendFilter, weights, appSettings) =>
       practiceTestWeightedAverage, officialQuizWeightedAverage,
       practiceTestRawAverage, officialQuizRawAverage,
       rawTrendStats, weightedTrendStats,
-      weightedDomainStats,
-      rawDomainStats,
-      weightedMasteryData,
-      rawMasteryData: buildMasteryData(rawMasteryTiers),
+      weightedDomainStats, rawDomainStats,
+      weightedMasteryData, rawMasteryData,
       weightedPriorityTopics: weightedPriorityDomains,
       rawPriorityTopics: rawPriorityDomains,
       officialQuizCount: allTests.filter(t => t.type === 'officialQuiz').length,
@@ -213,43 +220,106 @@ const App = () => {
   const [isExitingLoad, setIsExitingLoad] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Initializing Application...');
   
+  const [isArcadeMode, setIsArcadeMode] = useState(false);
+  const [transitionOpacity, setTransitionOpacity] = useState(0);
+
   const [activeTab, setActiveTab] = useState('overview');
   const [examData, setExamData] = useState(allExamData);
-  const [appSettings, setAppSettings] = useState(DEFAULT_SETTINGS);
   const [activeCert, setActiveCert] = useState(() => Object.keys(allExamData)[0] || null);
   
+  // 1. Initialize Settings (from LocalStorage or Default)
+  const [appSettings, setAppSettings] = useState(() => {
+    try {
+        const saved = localStorage.getItem('certTrackerSettings');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          // UPDATED: Only allow light and midnight themes. Fallback to light otherwise.
+          if (!['light', 'midnight'].includes(parsed.theme)) parsed.theme = 'light';
+          return { ...DEFAULT_SETTINGS, ...parsed };
+        }
+    } catch(e) {}
+    return DEFAULT_SETTINGS;
+  });
+
+  // 2. Helper Setters to update persistent settings
+  const setTrendFilter = (updater) => {
+    setAppSettings(prev => ({ ...prev, trendFilter: typeof updater === 'function' ? updater(prev.trendFilter) : updater }));
+  };
+  const setWeights = (updater) => {
+    setAppSettings(prev => ({ ...prev, weights: typeof updater === 'function' ? updater(prev.weights) : updater }));
+  };
+  const setOverviewConfig = (updater) => {
+    setAppSettings(prev => ({ ...prev, overviewConfig: typeof updater === 'function' ? updater(prev.overviewConfig) : updater }));
+  };
+  const setUseWeightedAverages = (value) => {
+    setAppSettings(prev => ({ ...prev, useWeightedAverages: value }));
+  };
+
+  // 3. Derived Values
+  const trendFilter = appSettings.trendFilter || DEFAULT_SETTINGS.trendFilter;
+  const weights = appSettings.weights || DEFAULT_SETTINGS.weights;
+  const useWeightedAverages = appSettings.useWeightedAverages ?? false;
+
+  const [trophyStatus, setTrophyStatus] = useState({ red: true, gold: false, legend: false });
   const [showAddCertModal, setShowAddCertModal] = useState(false);
   const [showDataEntryModal, setShowDataEntryModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  
+  const [isStudyModeActive, setIsStudyModeActive] = useState(false);
+  const [isQuizModeActive, setIsQuizModeActive] = useState(false); 
   const [tbdQueue, setTbdQueue] = useState([]);
   const [currentTbdTopic, setCurrentTbdTopic] = useState(null);
-  
-  const [trendFilter, setTrendFilter] = useState({ miniQuiz: true, officialQuiz: true, miniTest: true, practiceTest: true });
-  const [weights, setWeights] = useState({ miniQuiz: 1, officialQuiz: 3, miniTest: 2, practiceTest: 5 });
-  const [useWeightedAverages, setUseWeightedAverages] = useState(true);
   
   const [toast, setToast] = useState({ show: false, message: '', isError: false });
   const [confirmModal, setConfirmModal] = useState({ isVisible: false, title: '', message: '', onConfirm: () => {} });
 
   const showToast = (message, isError = false) => setToast({ show: true, message, isError });
 
+  // Effective Settings
+  const isSystemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const effectiveDarkMode = DARK_THEMES.includes(appSettings.theme) || (appSettings.theme === 'system' && isSystemDark);
+  const activeSettings = { ...appSettings, darkMode: effectiveDarkMode };
+  
+  // App Classes for main container
+  const appClasses = `min-h-screen app-text-main ${appSettings.useAccessibleFont ? 'font-accessible' : ''} ${appSettings.reduceMotion ? 'reduce-motion' : ''}`;
+
+  // -- GUARANTEE SETTINGS PERSISTENCE --
+  useEffect(() => {
+    localStorage.setItem('certTrackerSettings', JSON.stringify(appSettings));
+  }, [appSettings]);
+
+  // LOCK BODY SCROLL WHEN MODALS ARE OPEN
+  useEffect(() => {
+    const isModalOpen = showSettingsModal || showAddCertModal || showDataEntryModal || confirmModal.isVisible || currentTbdTopic;
+    document.body.style.overflow = isModalOpen ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showSettingsModal, showAddCertModal, showDataEntryModal, confirmModal.isVisible, currentTbdTopic]);
+
   // Load Data
   useEffect(() => {
     const loadInitialData = async () => {
-      
       const startTime = Date.now();
-      setLoadingMessage('Loading Core Modules...');
-      const dataLoadPromise = loadData();
       
-      // Simulate Steps (7s logic)
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setLoadingMessage('Verifying Data Integrity...');
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setLoadingMessage('Configuring Visualization Engine...');
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setLoadingMessage('Preparing Workspace...');
+      // Inject theme styles immediately on load using saved settings
+      injectThemeStyles();
+      applyTheme(appSettings.theme, appSettings.colorblindMode);
 
+      if (!appSettings.quickLoad) {
+          setLoadingMessage('Initializing Theme Engine...');
+          await new Promise(r => setTimeout(r, 800)); 
+          setLoadingMessage('Loading Core Modules...');
+          await new Promise(r => setTimeout(r, 1500));
+          setLoadingMessage('Verifying Data Integrity...');
+          await new Promise(r => setTimeout(r, 1500));
+          setLoadingMessage('Configuring Visualization Engine...');
+          await new Promise(r => setTimeout(r, 1500));
+          setLoadingMessage('Preparing Workspace...');
+      } else {
+          setLoadingMessage('Quick Loading...');
+      }
+
+      const dataLoadPromise = loadData();
       const result = await dataLoadPromise;
 
       if (result && result.error) {
@@ -258,61 +328,51 @@ const App = () => {
         let loadedData = (result && result.data) || allExamData;
         let loadedSettings = (result && result.settings) || DEFAULT_SETTINGS;
         
-        // Remove quickLoad option if it exists to clean up UI/Logic
-        if (loadedSettings) {
-            const { quickLoad, ...rest } = loadedSettings;
-            loadedSettings = rest;
+        if (loadedSettings.darkMode !== undefined && !loadedSettings.theme) {
+            loadedSettings.theme = loadedSettings.darkMode ? 'midnight' : 'light';
+            delete loadedSettings.darkMode;
         }
-
-        Object.keys(loadedData).forEach(certKey => {
-          const cert = loadedData[certKey];
-          if (cert.domains?.length > 0 && typeof cert.domains[0] === 'string') {
-            cert.domains = cert.domains.map(name => ({ name, isDeleted: false }));
-          }
-          if (!cert.journalEntries) {
-              cert.journalEntries = [];
-          }
-        });
+        if (loadedSettings.theme === 'dark') loadedSettings.theme = 'midnight';
 
         setExamData(loadedData);
-        setAppSettings(loadedSettings);
+        setAppSettings(prev => ({
+            ...loadedSettings,
+            quickLoad: prev.quickLoad // Preserve the current session's quickLoad state
+        }));
         setActiveCert(Object.keys(loadedData)[0] || null);
       }
 
-      const elapsedTime = Date.now() - startTime;
-      const remainingTime = 7000 - elapsedTime;
-      
-      if (remainingTime > 0) {
-        await new Promise(resolve => setTimeout(resolve, remainingTime));
+      // Enforce 7 Second Minimum UNLESS quickLoad is true
+      if (!appSettings.quickLoad) {
+          const elapsedTime = Date.now() - startTime;
+          const remainingTime = 7000 - elapsedTime; 
+          if (remainingTime > 0) {
+            await new Promise(resolve => setTimeout(resolve, remainingTime));
+          }
       }
       
+      // Start Fade Out Animation
       setIsExitingLoad(true);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Wait for Fade Out to complete before unmounting loading screen (500ms transition)
+      await new Promise(resolve => setTimeout(resolve, 500)); 
+      
       setIsLoading(false);
     };
     loadInitialData();
-  }, []);
+  }, []); // Run once on mount
 
-  // Save Data
   const initialLoadRef = useRef(true);
   useEffect(() => {
     if (initialLoadRef.current) { initialLoadRef.current = false; return; }
     if (isLoading) return; 
-    
-    // Ensure quickLoad is not saved
-    const settingsToSave = { ...appSettings };
-    if ('quickLoad' in settingsToSave) delete settingsToSave.quickLoad;
-    
-    saveData(examData, settingsToSave);
+    saveData(examData, appSettings);
   }, [examData, appSettings, isLoading]);
 
-  // Theme Effect
-  useEffect(() => {
-    const root = window.document.documentElement;
-    appSettings.darkMode ? root.classList.add('dark') : root.classList.remove('dark');
-  }, [appSettings.darkMode]);
+  useLayoutEffect(() => {
+    applyTheme(appSettings.theme, appSettings.colorblindMode);
+  }, [appSettings.theme, appSettings.colorblindMode]);
 
-  // Data Integrity Effect
   useEffect(() => {
     if (!activeCert || isLoading) return;
     const cert = examData[activeCert];
@@ -342,38 +402,31 @@ const App = () => {
       setCurrentTbdTopic(tbdQueue[0]);
     }
   }, [tbdQueue, currentTbdTopic]);
-  
-  // CSS Injection
-  useEffect(() => {
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes fadeIn {
-        from { opacity: 0; transform: scale(0.98); }
-        to { opacity: 1; transform: scale(1); }
-      }
-      .animate-fadeIn {
-        animation: fadeIn 0.8s ease-out forwards;
-      }
-      
-      @keyframes gradient-pan {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-      }
-      .animate-gradient-text {
-        background-size: 200% auto;
-        animation: gradient-pan 3s linear infinite;
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
-      }
-    `;
-    document.head.appendChild(style);
-    return () => { document.head.removeChild(style); };
-  }, []);
 
-  // --- HANDLERS ---
-  
+  const handleHoldProgress = (progress) => {
+    setTransitionOpacity(progress);
+  };
+
+  const handleEnterArcade = () => {
+    setTransitionOpacity(1);
+    setTimeout(() => {
+       setIsArcadeMode(true);
+       setTimeout(() => {
+         setTransitionOpacity(0);
+       }, 100); 
+    }, 800);
+  };
+
+  const handleExitArcade = () => {
+    setTransitionOpacity(1);
+    setTimeout(() => {
+       setIsArcadeMode(false);
+       setTimeout(() => {
+         setTransitionOpacity(0);
+       }, 100);
+    }, 800);
+  };
+
   const handleAddTest = (newTest) => {
     setExamData(prev => {
       const newData = structuredClone(prev);
@@ -402,19 +455,19 @@ const App = () => {
   };
   
   const handleAddDomain = (newDomainName) => {
-    setExamData(prev => {
-      const newData = structuredClone(prev);
-      const cert = newData[activeCert];
-      const existingDomain = cert.domains.find(d => d.name === newDomainName);
-      
-      if (existingDomain) {
-        if (existingDomain.isDeleted) { existingDomain.isDeleted = false; showToast("Domain re-activated!"); }
-        else { showToast("Domain already exists.", true); }
-      } else {
-        cert.domains.push({ name: newDomainName, isDeleted: false });
-        showToast("Domain added!");
-      }
-      return newData;
+    setExamData(prevData => {
+        const newData = structuredClone(prevData);
+        const cert = newData[activeCert];
+        const existingDomain = cert.domains.find(d => d.name === newDomainName);
+        
+        if (existingDomain) {
+          if (existingDomain.isDeleted) { existingDomain.isDeleted = false; showToast("Domain re-activated!"); }
+          else { showToast("Domain already exists.", true); }
+        } else {
+          cert.domains.push({ name: newDomainName, isDeleted: false });
+          showToast("Domain added!");
+        }
+        return newData;
     });
   };
 
@@ -476,19 +529,19 @@ const App = () => {
   };
 
   const promptDeleteStudySession = (sessionId) => {
-      setConfirmModal({
-        isVisible: true, title: "Delete Session?", message: "This will soft-delete the session.",
-        onConfirm: () => {
-            setExamData(prev => {
-                const newData = structuredClone(prev);
-                const s = newData[activeCert].studySessions.find(i => i.id === sessionId);
-                if (s) s.isDeleted = true;
-                return newData;
-            });
-            showToast("Session deleted.");
-            closeConfirmModal();
-        }
-      });
+    setConfirmModal({
+      isVisible: true, title: "Delete Session?", message: "This will soft-delete the session.",
+      onConfirm: () => {
+        setExamData(prev => {
+            const newData = structuredClone(prev);
+            const s = newData[activeCert].studySessions.find(i => i.id === sessionId);
+            if (s) s.isDeleted = true;
+            return newData;
+        });
+        showToast("Session deleted.");
+        closeConfirmModal();
+      }
+    });
   };
 
   const promptDeleteDomain = (domainName) => {
@@ -585,24 +638,85 @@ const App = () => {
 
   const closeConfirmModal = () => setConfirmModal({ isVisible: false, title: '', message: '', onConfirm: () => {} });
 
-  const metrics = useCertificationMetrics(examData[activeCert], trendFilter, weights, appSettings);
+  const metrics = useCertificationMetrics(examData[activeCert], trendFilter, weights, activeSettings);
   const hasData = activeCert && metrics && (metrics.practiceTestsCount > 0 || metrics.officialQuizCount > 0 || (metrics.studySessions && metrics.studySessions.length > 0) || (metrics.journalEntries && metrics.journalEntries.length > 0));
-  const appClasses = `min-h-screen ${appSettings.useAccessibleFont ? 'font-accessible' : ''} ${appSettings.reduceMotion ? 'reduce-motion' : ''}`;
   
   const hasAnyCerts = Object.keys(examData || {}).length > 0;
   
-  const normalGradient = 'linear-gradient(to right, #38bdf8, #a855f7, #ec4899)'; 
-  const cbGradient = `linear-gradient(to right, ${COLORBLIND_SAFE_COLORS.join(', ')})`;
-  const activeGradient = appSettings.colorblindMode ? cbGradient : normalGradient;
+  const getTrophyLevel = () => {
+      // Stubbed Trophy Logic
+      return 'RED';
+  };
+  const currentTrophy = getTrophyLevel();
+  const activeGradient = getActiveGradient();
 
-  // 1. SHOW LOADING SCREEN
+  // FIX: Pass the isDarkMode prop directly to LoadingScreen to prevent flash
   if (isLoading) {
-    return <LoadingScreen message={loadingMessage} isExiting={isExitingLoad} />;
+    return (
+        <LoadingScreen 
+            message={loadingMessage} 
+            isExiting={isExitingLoad} 
+            isDarkMode={effectiveDarkMode} 
+        />
+    );
   }
   
+  // CONDITIONAL RENDER: Study Mode replaces the entire window
+  if (isStudyModeActive) {
+    return (
+      <div className="w-full h-full overflow-hidden">
+         <ThemeEffects theme={appSettings.theme} />
+         {/* SUSPENSE WRAPPER FOR LAZY LOADING */}
+         <Suspense fallback={
+            <div className="flex flex-col items-center justify-center h-screen w-full bg-slate-900 text-white">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
+                <h2 className="text-xl font-semibold">Loading Study Resources</h2>
+                <p className="text-sm opacity-70 mt-2">Preparing high-resolution documents...</p>
+            </div>
+         }>
+            <NetworkPlusGuide onClose={() => setIsStudyModeActive(false)} />
+         </Suspense>
+      </div>
+    );
+  }
+
+  // CONDITIONAL RENDER: Quiz Mode
+  if (isQuizModeActive) {
+    return (
+      <div className="w-full h-full overflow-hidden">
+         <ThemeEffects theme={appSettings.theme} />
+         <Suspense fallback={
+            <div className="flex flex-col items-center justify-center h-screen w-full bg-slate-900 text-white">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
+                <h2 className="text-xl font-semibold">Initializing Quiz Mode</h2>
+            </div>
+         }>
+            <QuizApp onClose={() => setIsQuizModeActive(false)} />
+         </Suspense>
+      </div>
+    );
+  }
+
+  // CONDITIONAL RENDER: Arcade Mode replaces the entire window
+  if (isArcadeMode) {
+    return (
+        <>
+            <div 
+                className="fixed inset-0 z-[9999] pointer-events-none transition-all duration-75 ease-out"
+                style={{ 
+                    opacity: transitionOpacity,
+                    backdropFilter: `blur(${transitionOpacity * 12}px)`,
+                    backgroundColor: `rgba(0,0,0, ${transitionOpacity * 0.2})`
+                }} 
+            />
+            <ArcadeGameRoot onExit={handleExitArcade} />
+        </>
+    );
+  }
+  
+  // Logic for the main content animation (Fade In once loading exits)
   const mainContentClass = isExitingLoad ? 'animate-fadeIn' : 'opacity-0';
 
-  // 3. ONBOARDING
   if (!hasAnyCerts) {
     return (
       <div className={`${appClasses} p-8 ${mainContentClass}`}>
@@ -618,12 +732,24 @@ const App = () => {
     );
   }
 
-  // 4. DASHBOARD
   return (
-    <div className={`${appClasses} p-4 sm:p-8 ${mainContentClass}`}>
+    <>
+      {/* Theme Effects - Global Backgrounds */}
+      <ThemeEffects theme={appSettings.theme} />
       
+      {/* Transition Overlay */}
+      <div 
+          className="fixed inset-0 z-[9999] pointer-events-none transition-all duration-75 ease-out"
+          style={{ 
+              opacity: transitionOpacity,
+              backdropFilter: `blur(${transitionOpacity * 12}px)`,
+              backgroundColor: `rgba(0,0,0, ${transitionOpacity * 0.2})`
+          }} 
+      />
+
+      {/* MODALS AND OVERLAYS - MOVED OUTSIDE MAIN CONTENT */}
       {toast.show && <ToastNotification message={toast.message} isError={toast.isError} onHide={() => setToast({ show: false, message: '', isError: false })} />}
-      {currentTbdTopic && <MetadataModal topic={currentTbdTopic} onClose={handleCloseModal} onSubmit={handleUpdateTopicDomain} showToast={showToast} />}
+      {currentTbdTopic && <MetadataModal topic={currentTbdTopic} onClose={() => setCurrentTbdTopic(null)} onSubmit={handleUpdateTopicDomain} showToast={showToast} />}
       <ConfirmModal {...confirmModal} onCancel={closeConfirmModal} />
       
       <SettingsModal 
@@ -659,96 +785,123 @@ const App = () => {
           />
       )}
 
-      <div className={`${appSettings.maxWidth} mx-auto`}>
-        
-        {/* UNIFIED HEADER */}
-        <div className="flex justify-between items-center mb-4">
-           <div>
-              <style>{`
-                @keyframes gradient-pan {
-                  0% { background-position: 0% 50%; }
-                  50% { background-position: 100% 50%; }
-                  100% { background-position: 0% 50%; }
-                }
-                .animate-gradient-text {
-                  background-size: 200% auto;
-                  animation: gradient-pan 3s linear infinite;
-                  -webkit-background-clip: text;
-                  background-clip: text;
-                  color: transparent;
-                }
-              `}</style>
-              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 flex items-center">
-                Study Tracker
-                <span 
-                  className="ml-2 animate-gradient-text"
-                  style={{ backgroundImage: activeGradient }}
-                >
-                  2
-                </span>
-              </h1>
-              <p className="text-xs text-slate-400 dark:text-slate-500 font-mono mt-1">
-                  Version 1.0.0
-              </p>
-           </div>
-        </div>
-        
-        <Navigation 
-            examData={examData} 
-            activeCert={activeCert} 
-            onCertChange={setActiveCert} 
-            activeTab={activeTab} 
-            onTabChange={setActiveTab} 
-            onShowAddCertModal={() => setShowAddCertModal(true)}
-        />
-        
-        {!hasData ? (
-             <div className="bg-white p-10 rounded-xl ring-1 ring-slate-200 text-center mt-6 dark:bg-gray-900 dark:ring-gray-800">
-                <h2 className="text-xl font-semibold text-slate-700 dark:text-slate-100">No Data Yet</h2>
-                <p className="text-slate-500 dark:text-slate-400 mt-2">Click the "+" button to add your first domain and test.</p>
+      {/* MAIN APP CONTENT */}
+      <div className={`${appClasses} p-4 sm:p-8 ${mainContentClass} ${effectiveDarkMode ? 'dark' : ''}`}>
+        <div className={`${appSettings.maxWidth} mx-auto relative z-10`}>
+          
+          <div className="flex justify-between items-center mb-4">
+             <div>
+                <div className="flex items-center">
+                    <h1 className="text-3xl font-bold app-text-main flex items-center">
+                      Study Tracker
+                      <span 
+                        className="ml-2 app-gradient-text"
+                      >
+                        2
+                      </span>
+                    </h1>
+                    <TrophyIcon level={currentTrophy} className="w-6 h-6 ml-2 app-gradient-text" />
+                </div>
+                
+                <p className="text-xs app-text-muted font-mono mt-1">
+                    Beta Version 1.0.9
+                </p>
              </div>
-        ) : (
-            <div className="mt-6">
-                {activeTab === 'overview' && (
-                    <div className="space-y-6">
-                        <div className="flex justify-end -mt-4">
-                            <WeightedToggle useWeightedAverages={useWeightedAverages} setUseWeightedAverages={setUseWeightedAverages} />
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <StatsCard title="Practice Test Avg" value={`${useWeightedAverages ? metrics.practiceTestWeightedAverage : metrics.practiceTestRawAverage}%`} subtitle={`${metrics.practiceTestsCount} tests`} color={getScoreClass(useWeightedAverages ? metrics.practiceTestWeightedAverage : metrics.practiceTestRawAverage, appSettings.colorblindMode)} />
-                            <StatsCard title="Official Quiz Avg" value={`${useWeightedAverages ? metrics.officialQuizWeightedAverage : metrics.officialQuizRawAverage}%`} subtitle={`${metrics.officialQuizCount} quizzes`} color={getScoreClass(useWeightedAverages ? metrics.officialQuizWeightedAverage : metrics.officialQuizRawAverage, appSettings.colorblindMode)} />
-                            <StatsCard title="For Review" value={useWeightedAverages ? metrics.weightedPriorityTopics.length : metrics.rawPriorityTopics.length} subtitle={`< ${config.PASSING_SCORE}% avg`} color={getReviewClass(useWeightedAverages ? metrics.weightedPriorityTopics.length : metrics.rawPriorityTopics.length, metrics.totalTopics, appSettings.colorblindMode)} />
-                            <StatsCard title="Mastered" value={metrics.weightedMasteredCount} subtitle={`of ${metrics.totalTopics} domains`} color={getMasteredClass(metrics.weightedMasteredCount, metrics.totalTopics, appSettings.colorblindMode)} />
-                        </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <DomainChart data={useWeightedAverages ? metrics.weightedDomainStats : metrics.rawDomainStats} isWeighted={useWeightedAverages} appSettings={appSettings} />
-                            <MasteryChart data={useWeightedAverages ? metrics.weightedMasteryData : metrics.rawMasteryData} isWeighted={useWeightedAverages} appSettings={appSettings} />
-                        </div>
-                    </div>
-                )}
-                
-                {activeTab === 'priority' && (
-                    <div>
-                        <div className="flex justify-end mb-4"><WeightedToggle useWeightedAverages={useWeightedAverages} setUseWeightedAverages={setUseWeightedAverages} /></div>
-                        <TopicsForReview topics={useWeightedAverages ? metrics.weightedPriorityTopics : metrics.rawPriorityTopics} isWeighted={useWeightedAverages} appSettings={appSettings} />
-                    </div>
-                )}
-                
-                {activeTab === 'trends' && (
-                    <PerformanceTrends trendData={metrics.trendData} rawTrendStats={metrics.rawTrendStats} weightedTrendStats={metrics.weightedTrendStats} useWeightedAverages={useWeightedAverages} setUseWeightedAverages={setUseWeightedAverages} trendFilter={trendFilter} setTrendFilter={setTrendFilter} weights={weights} setWeights={setWeights} appSettings={appSettings} />
-                )}
-                
-                {activeTab === 'study log' && <StudyLog sessions={metrics.studySessions} journalEntries={metrics.journalEntries} />}
-            </div>
-        )}
+             
+             <div className="flex flex-col items-end gap-1">
+                 <button 
+                    className="text-sm font-medium transition-colors app-gradient-text hover:opacity-80"
+                    onClick={() => setIsStudyModeActive(true)}
+                 >
+                    <span className="app-gradient-text">Study</span>
+                 </button>
+                 
+                 <button 
+                    className="text-sm font-medium transition-colors app-text-muted hover:app-text-main"
+                    onClick={() => setIsQuizModeActive(true)}
+                 >
+                    Quiz
+                 </button>
+             </div>
+          </div>
+          
+          <Navigation 
+              examData={examData} 
+              activeCert={activeCert} 
+              onCertChange={setActiveCert} 
+              activeTab={activeTab} 
+              onTabChange={setActiveTab} 
+              onShowAddCertModal={() => setShowAddCertModal(true)}
+          />
+          
+          {!hasData ? (
+               <div className="app-bg-surface p-10 rounded-xl app-ring-primary ring-1 text-center mt-6">
+                  <h2 className="text-xl font-semibold app-text-main">No Data Yet</h2>
+                  <p className="app-text-muted mt-2">Click the "+" button to add your first domain and test.</p>
+               </div>
+          ) : (
+              <div className="mt-6">
+                  {activeTab === 'overview' && (
+                      <OverviewSection 
+                          metrics={metrics} 
+                          useWeightedAverages={useWeightedAverages}
+                          setUseWeightedAverages={setUseWeightedAverages} 
+                          appSettings={activeSettings}
+                          priorityTopics={metrics.weightedPriorityTopics}
+                          rawPriorityTopics={metrics.rawPriorityTopics}
+                          studySessions={metrics.studySessions}
+                          trendData={metrics.trendData} 
+                          trendFilter={trendFilter}
+                          setTrendFilter={setTrendFilter}
+                          overviewConfig={appSettings.overviewConfig || DEFAULT_SETTINGS.overviewConfig} 
+                          setOverviewConfig={setOverviewConfig} 
+                      />
+                  )}
+                  
+                  {activeTab === 'priority' && (
+                      <div>
+                          <div className="flex justify-end mb-4 app-text-main">
+                              <WeightedToggle useWeightedAverages={useWeightedAverages} setUseWeightedAverages={setUseWeightedAverages} />
+                          </div>
+                          <TopicsForReview topics={useWeightedAverages ? metrics.weightedPriorityTopics : metrics.rawPriorityTopics} isWeighted={useWeightedAverages} appSettings={activeSettings} />
+                      </div>
+                  )}
+                  
+                  {activeTab === 'trends' && (
+                      <PerformanceTrends 
+                         trendData={metrics.trendData} 
+                         rawTrendStats={metrics.rawTrendStats} 
+                         weightedTrendStats={metrics.weightedTrendStats} 
+                         useWeightedAverages={useWeightedAverages} 
+                         setUseWeightedAverages={setUseWeightedAverages} 
+                         trendFilter={trendFilter} 
+                         setTrendFilter={setTrendFilter} 
+                         weights={weights} 
+                         setWeights={setWeights} 
+                         appSettings={activeSettings} 
+                      />
+                  )}
+                  
+                  {activeTab === 'study log' && <StudyLog sessions={metrics.studySessions} journalEntries={metrics.journalEntries} />}
+              </div>
+          )}
+        </div>
       </div>
-      
-      <SettingsFab onOpenSettings={() => setShowSettingsModal(true)} />
-      
-      <button onClick={() => setShowDataEntryModal(true)} className="fixed bottom-8 right-8 w-14 h-14 bg-sky-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-sky-700 dark:bg-blue-500 dark:hover:bg-blue-400" title="Add New Data">
-        <PlusIcon />
+
+      <SettingsFab 
+           onOpenSettings={() => setShowSettingsModal(true)} 
+           onEnterArcade={handleEnterArcade} 
+           onHoldProgress={handleHoldProgress} 
+      />
+       
+      <button 
+        onClick={() => setShowDataEntryModal(true)} 
+        className="fixed bottom-8 right-8 w-14 h-14 app-bg-primary text-white rounded-full flex items-center justify-center shadow-lg z-50 transition-transform hover:scale-110 active:scale-95 hover:shadow-xl app-hover-primary" 
+        title="Add New Data"
+      >
+         <PlusIcon />
       </button>
-    </div>
+    </>
   );
 };
 

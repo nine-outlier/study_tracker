@@ -1,32 +1,38 @@
+// --- ARCADE CONFIGURATION ---
 export const ARCADE_CONFIG = {
-  // --- CORE SETTINGS ---
+  // Lives
   INITIAL_LIVES: 3,
-  MAX_EXTRA_LIVES: 2, // Cap on Angel hearts
-  GAME_TICK_RATE: 100, // ms (10 ticks per second)
-  
-  // --- SCORING ---
+  MAX_EXTRA_LIVES: 2,
+
+  // Scoring Basics
+  GAME_TICK_RATE: 100,
   BASE_SCORE_PER_ENEMY: 475,
-  PASSIVE_SCORE_INTERVAL: 1000, // 1 second
-  PASSIVE_SCORE_PER_10K: 10,    // +10 points per 10k current score
   
-  // --- MULTIPLIERS ---
+  // Passive Income
+  PASSIVE_SCORE_INTERVAL: 1000,
+  PASSIVE_SCORE_PER_10K: 10,
+
+  // Multiplier Logic
   STARTING_MULTIPLIER: 1.0,
   MAX_NORMAL_MULTIPLIER: 10.0,
-  GOLD_MODE_MULTIPLIER: 15.0,   // Unlocked at 2.5M
-  MULTIPLIER_GROWTH_RATE: 0.1,  // How much it grows per successful mini-game
-  
-  // --- THRESHOLDS (The "Meta" Goals) ---
-  THRESHOLDS: {
-    RED_THEME: 1000000,
-    GOLD_THEME: 2500000,
-    LEGEND_TROPHY: 5000000,
-    COUNTDOWN_START: 4000000
+  GOLD_MODE_MULTIPLIER: 15.0,
+  MULTIPLIER_GROWTH_RATE: 0.1,
+
+  // UI Thresholds
+  THRESHOLDS: { 
+    RED_THEME: 1000000, 
+    GOLD_THEME: 2500000, 
+    LEGEND_TROPHY: 5000000, 
+    COUNTDOWN_START: 4000000 
   },
+
+  // Minigame Timers
+  MINIGAME_DURATION_BASE: 12,
+  MINIGAME_DURATION_MIN: 5,
   
-  // --- TIMING ---
-  MINIGAME_DURATION_BASE: 12, // Seconds
-  MINIGAME_DURATION_MIN: 5,   // It gets faster over time
-  BOSS_FREQUENCY: 15,         // Rounds between bosses
+  // --- ROUND EVENTS ---
+  // Note: Standard Encounter logic is now handled internally by the Engine (Every 5 rounds).
+  BOSS_FREQUENCY: 15,      // Boss fight every 15 rounds (15, 30, 45...)
 };
 
 export const MINIGAME_TYPES = {

@@ -1,58 +1,92 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { ARCADE_CONFIG } from '../config/arcadeConfig';
-import { calculatePassiveTick } from '../utils/arcadeMath';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { calculateRoundRewards } from '../utils/arcadeScoring.js';
 
-export const useArcadeScoreManager = (gameState) => {
+// UPDATED: Now accepts 'encounterType' to distinguish between Menus vs Boss Fights
+export const useArcadeScoreManager = (gameState, currentRound, encounterType) => {
   const [score, setScore] = useState(0);
-  const [multiplier, setMultiplier] = useState(ARCADE_CONFIG.STARTING_MULTIPLIER);
-  const [highScore, setHighScore] = useState(0); // Could load from persistent storage
+  const [multiplier, setMultiplier] = useState(1.0);
+  const [passiveRate, setPassiveRate] = useState(0);
+  const [currentZone, setCurrentZone] = useState('ACCELERATION');
 
-  // Passive Score Ticker
+  // --- PASSIVE POINT TICKER (THE FIX) ---
   useEffect(() => {
     let interval;
-    if (gameState === 'PLAYING') {
-      interval = setInterval(() => {
-        setScore(prev => prev + calculatePassiveTick(prev));
-      }, ARCADE_CONFIG.PASSIVE_SCORE_INTERVAL);
-    }
-    return () => clearInterval(interval);
-  }, [gameState]);
+    
+    // LOGIC FIX: 
+    // 1. Always tick during normal 'PLAYING'.
+    // 2. ONLY tick during 'ENCOUNTER' if it is a 'BOSS'. 
+    //    (Pauses for Angel, Devil, Merchant, etc.)
+    const isBossFight = (gameState === 'ENCOUNTER' && encounterType === 'BOSS');
+    const isPlaying = (gameState === 'PLAYING');
 
-  // Check for 15x Multiplier Unlock (Gold Theme)
-  useEffect(() => {
-    if (score >= ARCADE_CONFIG.THRESHOLDS.GOLD_THEME && multiplier < ARCADE_CONFIG.GOLD_MODE_MULTIPLIER) {
-      setMultiplier(ARCADE_CONFIG.GOLD_MODE_MULTIPLIER);
+    if (isPlaying || isBossFight) {
+      interval = setInterval(() => {
+        if (passiveRate > 0) {
+          setScore(prev => prev + passiveRate);
+        }
+      }, 1000); // Tick every second
     }
-  }, [score, multiplier]);
+    
+    return () => clearInterval(interval);
+  }, [gameState, passiveRate, encounterType]); // Added encounterType dependency
+
+  // --- CALCULATE RATES FOR NEW ROUND ---
+  useEffect(() => {
+    const stats = calculateRoundRewards(currentRound);
+    setPassiveRate(stats.passivePerSec);
+    setCurrentZone(stats.zone);
+  }, [currentRound]);
+
+  // --- ACTIONS ---
 
   const addScore = useCallback((amount) => {
-    setScore(prev => prev + Math.floor(amount * multiplier));
+    setScore(prev => Math.floor(prev + (amount * multiplier)));
   }, [multiplier]);
+
+  const addRawScore = useCallback((amount) => {
+    setScore(prev => Math.floor(prev + amount));
+  }, []);
 
   const incrementMultiplier = useCallback(() => {
-    // Don't increment if we are already in Gold Mode (locked at 15x)
-    if (multiplier >= ARCADE_CONFIG.GOLD_MODE_MULTIPLIER) return;
+    const stats = calculateRoundRewards(currentRound);
+    setMultiplier(stats.targetMultiplier);
+  }, [currentRound]);
 
-    setMultiplier(prev => Math.min(prev + ARCADE_CONFIG.MULTIPLIER_GROWTH_RATE, ARCADE_CONFIG.MAX_NORMAL_MULTIPLIER));
-  }, [multiplier]);
+  const resetMultiplier = useCallback(() => {
+    setMultiplier(1.0);
+  }, []);
 
   const resetScore = useCallback(() => {
     setScore(0);
-    setMultiplier(ARCADE_CONFIG.STARTING_MULTIPLIER);
+    setMultiplier(1.0);
+    setPassiveRate(0);
   }, []);
 
-  // Handle Devil Sacrifices (percentage loss)
-  const sacrificeScore = useCallback((percent) => {
-    setScore(prev => Math.floor(prev * (1 - percent)));
+  // Helpers for God Mode / Encounters
+  const setMultiplierDirect = useCallback((val) => {
+      setMultiplier(val);
+  }, []);
+
+  const multiplyMultiplier = useCallback((factor) => {
+      setMultiplier(prev => parseFloat((prev * factor).toFixed(1)));
+  }, []);
+  
+  const multiplyScore = useCallback((factor) => {
+      setScore(prev => Math.floor(prev * factor));
   }, []);
 
   return {
     score,
     multiplier,
-    highScore,
+    passiveRate,
+    currentZone, 
     addScore,
+    addRawScore,
+    setMultiplier: setMultiplierDirect, 
+    multiplyMultiplier,
+    multiplyScore,
     incrementMultiplier,
-    resetScore,
-    sacrificeScore
+    resetMultiplier,
+    resetScore
   };
 };

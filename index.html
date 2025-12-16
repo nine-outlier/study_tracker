@@ -2,14 +2,6 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- 
-      CSP Configuration:
-      - default-src 'self': Restrict everything to local by default.
-      - script-src 'self': Allow local scripts (bundle.js).
-      - style-src 'self' 'unsafe-inline' https://fonts.googleapis.com: Allow local styles, inline styles (Tailwind), and Google Fonts CSS.
-      - font-src 'self' https://fonts.gstatic.com: Allow local fonts and Google Fonts files.
-      - img-src 'self' data: : Allow local images and chart SVGs.
-    -->
     <meta 
       http-equiv="Content-Security-Policy" 
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:;"
@@ -17,27 +9,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Study Tracker</title>
 
-    <!-- Fonts (Inter & Lexend) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lexend:wght@300;400;500&display=swap"
       rel="stylesheet"
     />
-  </head>
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+      rel="stylesheet"
+    />
+    </head>
 
   <body class="bg-slate-50 dark:bg-gray-950">
-    <!-- Custom Title Bar
-<div class="titlebar">
-  <img src="./src/assets/icon.png" class="titlebar-icon" />
-  <div class="titlebar-title">Study Tracker</div>
-</div>
-      -->
-
-    <!-- React App Root -->
     <div id="root"></div>
 
-    <!-- Webpack Bundle -->
     <script src="./dist/bundle.js"></script>
   </body>
 </html>

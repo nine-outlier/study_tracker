@@ -1,33 +1,70 @@
-// Constants and default data moved out of the main component
-
 export const config = {
-    MASTERY_LABELS: {
-        'Critical': 'Critical', 
-        'Weak': 'Weak', 
-        'Developing': 'Developing',
-        'Strong': 'Strong', 
-        'Mastered': 'Master-ed'
-    },
-    PASSING_SCORE: 80,
-    MIN_ATTEMPTS_FOR_MASTERY: 2,
-    MASTERY_AVG_THRESHOLD: 70,
-    MASTERY_LATEST_SCORE_THRESHOLD: 90,
-    TEST_TYPES: {
-        miniQuiz: "Mini Quiz",
-        officialQuiz: "Official Quiz",
-        miniTest: "Mini Test",
-        practiceTest: "Practice Test",
-    },
-    ALL_DOMAINS_KEY: "[All Domains (Overall Score)]",
-    UNCATEGORIZED_KEY: "[Uncategorized Data]"
+  MASTERY_LABELS: {
+    'Critical': 'Critical', 'Weak': 'Weak', 'Developing': 'Developing',
+    'Strong': 'Strong', 'Mastered': 'Mastered'
+  },
+  PASSING_SCORE: 80,
+  MIN_ATTEMPTS_FOR_MASTERY: 2,
+  MASTERY_AVG_THRESHOLD: 70,
+  MASTERY_LATEST_SCORE_THRESHOLD: 90,
+  TEST_TYPES: {
+    miniQuiz: "Mini Quiz",
+    officialQuiz: "Official Quiz",
+    miniTest: "Mini Test",
+    practiceTest: "Practice Test",
+  },
+  ALL_DOMAINS_KEY: "[All Domains (Overall Score)]",
+  UNCATEGORIZED_KEY: "[Uncategorized Data]"
 };
 
 export const allExamData = {};
 
+export const LOCAL_STORAGE_KEY = 'certTrackerData';
+export const SETTINGS_STORAGE_KEY = 'certTrackerSettings';
+
 export const DEFAULT_SETTINGS = {
-    useAccessibleFont: false,
-    reduceMotion: false,
-    maxWidth: 'max-w-7xl',
-    colorblindMode: false,
-    darkMode: false,
+  useAccessibleFont: false,
+  reduceMotion: false,
+  maxWidth: 'max-w-7xl', 
+  colorblindMode: false,
+  darkMode: false,
+  theme: 'system',
+  
+  // Defaults for new features
+  useWeightedAverages: false,
+  weights: { miniQuiz: 1, officialQuiz: 3, miniTest: 2, practiceTest: 5 },
+  trendFilter: { miniQuiz: true, officialQuiz: true, miniTest: true, practiceTest: true },
+  overviewConfig: {
+    showDomain: true,
+    showMastery: true,
+    combineCharts: false,
+    showHistory: false,
+    showPriority: false,
+    showStudyLog: false,
+  }
+};
+
+export const ARCADE_CONFIG = {
+  INITIAL_LIVES: 3,
+  MAX_EXTRA_LIVES: 2,
+  GAME_TICK_RATE: 100,
+  BASE_SCORE_PER_ENEMY: 475,
+  PASSIVE_SCORE_INTERVAL: 1000,
+  PASSIVE_SCORE_PER_10K: 10,
+  STARTING_MULTIPLIER: 1.0,
+  MAX_NORMAL_MULTIPLIER: 10.0,
+  GOLD_MODE_MULTIPLIER: 15.0,
+  MULTIPLIER_GROWTH_RATE: 0.1,
+  THRESHOLDS: { RED_THEME: 1000000, GOLD_THEME: 2500000, LEGEND_TROPHY: 5000000, COUNTDOWN_START: 4000000 },
+  MINIGAME_DURATION_BASE: 12,
+  MINIGAME_DURATION_MIN: 5,
+  BOSS_FREQUENCY: 15,
+};
+
+export const MINIGAME_TYPES = {
+  COLOR_HERD: 'COLOR_HERD',
+  COLOR_WHEEL: 'COLOR_WHEEL',
+  MASH_CHASE: 'MASH_CHASE',
+  PROJECTILE_DODGE: 'PROJECTILE_DODGE',
+  CORNER_EXPANSION: 'CORNER_EXPANSION'
 };
