@@ -50,6 +50,7 @@
       "dist/**/*",
       "index.html",
       "main.js",
+      "preload.js",
       "package.json"
     ],
     "win": {
