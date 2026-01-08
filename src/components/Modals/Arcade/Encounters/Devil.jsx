@@ -79,6 +79,7 @@ export const Devil = ({ onAccept, onReject, currentScore }) => {
   const [stage, setStage] = useState(0);
   const [phase, setPhase] = useState('ENTRY');
   const [beams, setBeams] = useState([]);
+  const [selectedIndex, setSelectedIndex] = useState(1); // 0: Refuse, 1: Accept
 
   useEffect(() => {
     const t1 = setTimeout(() => setStage(1), 500);
@@ -152,6 +153,24 @@ export const Devil = ({ onAccept, onReject, currentScore }) => {
     }, 3000); 
   };
 
+  // Keyboard Navigation
+  useEffect(() => {
+    if (stage < 3) return; 
+
+    const handleKeyDown = (e) => {
+        if (['ArrowLeft', 'KeyA', 'ArrowRight', 'KeyD', 'ArrowUp', 'KeyW', 'ArrowDown', 'KeyS'].includes(e.code)) {
+            // Toggle selection on any direction
+            setSelectedIndex(prev => prev === 0 ? 1 : 0);
+        } else if (['Space', 'Enter'].includes(e.code)) {
+            e.preventDefault();
+            if (selectedIndex === 0) onReject();
+            if (selectedIndex === 1) handleAccept();
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [stage, selectedIndex, onReject, phase]); // Dependencies important for handleAccept closure
+
   const lightColor = 'rgba(220,38,38,0.9)';
   let bgClass = (stage < 2 ? 'bg-black' : 'bg-red-950/95');
   if (phase === 'SELECTED') bgClass = 'bg-red-950/90 animate-crack-flicker crack-overlay';
@@ -184,11 +203,33 @@ export const Devil = ({ onAccept, onReject, currentScore }) => {
                         </div>
                     </div>
                     <div className="flex flex-col md:flex-row gap-6 justify-center items-center">
-                        <button onClick={onReject} className="px-8 py-4 rounded-full border border-slate-600 text-slate-400 hover:text-white hover:border-white hover:bg-white/5 transition-all uppercase tracking-widest text-sm font-bold">Refuse & Leave</button>
-                        <button onClick={handleAccept} className="group relative px-10 py-5 bg-red-600 hover:bg-red-500 text-white rounded-full font-black text-xl tracking-widest uppercase transition-all hover:scale-105 shadow-[0_0_50px_rgba(220,38,38,0.4)] overflow-hidden">
+                        <button 
+                            onClick={onReject} 
+                            className={`px-8 py-4 rounded-full border transition-all uppercase tracking-widest text-sm font-bold
+                                ${selectedIndex === 0 
+                                    ? 'bg-white text-black border-white scale-105 shadow-[0_0_20px_rgba(255,255,255,0.3)]' 
+                                    : 'border-slate-600 text-slate-400 hover:text-white hover:border-white hover:bg-white/5'
+                                }
+                            `}
+                        >
+                            Refuse & Leave
+                        </button>
+                        
+                        <button 
+                            onClick={handleAccept} 
+                            className={`group relative px-10 py-5 rounded-full font-black text-xl tracking-widest uppercase transition-all overflow-hidden
+                                ${selectedIndex === 1
+                                    ? 'bg-red-500 text-white scale-105 shadow-[0_0_50px_rgba(220,38,38,0.6)] ring-4 ring-red-900'
+                                    : 'bg-red-600 text-white hover:bg-red-500 shadow-[0_0_50px_rgba(220,38,38,0.4)]'
+                                }
+                            `}
+                        >
                             <span className="relative z-10">Accept Deal</span>
                             <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                         </button>
+                    </div>
+                    <div className="mt-8 text-[10px] text-red-500/50 uppercase tracking-widest animate-pulse">
+                        [WASD/ARROWS TO SELECT • SPACE TO CONFIRM]
                     </div>
                 </div>
             </div>

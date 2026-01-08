@@ -1,0 +1,49 @@
+{
+  "name": "certification-tracker",
+  "version": "1.1.0",
+  "description": "Data Performance tool.",
+  "main": "main.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nine-outlier/study_tracker.git"
+  },
+  "scripts": {
+    "build": "webpack --mode=development",
+    "start": "npm run build && electron .",
+    "dist": "npm run build && electron-builder",
+    "release": "npm run build && electron-builder --publish always"
+  },
+  "dependencies": {
+    "electron-updater": "^6.7.3",
+    "pdfjs-dist": "^5.4.449",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "recharts": "^2.12.7"
+  },
+  "devDependencies": {
+    "electron": "^39.2.3",
+    "electron-builder": "^26.0.12",
+    "...": "..."
+  },
+  "build": {
+    "appId": "com.certification.tracker",
+    "productName": "Study Tracker",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "nine-outlier",
+        "repo": "study_tracker"
+      }
+    ],
+    "files": [
+      "dist/**/*",
+      "index.html",
+      "main.js",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    }
+  }
+}

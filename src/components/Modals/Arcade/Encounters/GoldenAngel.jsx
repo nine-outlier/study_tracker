@@ -54,6 +54,20 @@ export const GoldenAngel = ({ onAccept }) => {
     }, 3000);
   };
 
+  // Keyboard Support
+  useEffect(() => {
+    if (stage < 3) return;
+
+    const handleKeyDown = (e) => {
+        if (['Space', 'Enter'].includes(e.code)) {
+            e.preventDefault();
+            handleAccept();
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [stage, phase]);
+
   const bgClass = stage < 2 ? 'bg-black' : 'bg-slate-900/95';
   const lightColor = "rgba(255,215,0,0.8)";
 
@@ -88,10 +102,16 @@ export const GoldenAngel = ({ onAccept }) => {
                         </div>
                     </div>
                     <div className="flex flex-col md:flex-row gap-6 justify-center items-center">
-                        <button onClick={handleAccept} className="group relative px-12 py-5 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black rounded-full font-black text-xl tracking-widest uppercase transition-all hover:scale-105 shadow-[0_0_40px_rgba(234,179,8,0.5)] overflow-hidden border border-yellow-300">
+                        <button 
+                            onClick={handleAccept} 
+                            className="group relative px-12 py-5 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black rounded-full font-black text-xl tracking-widest uppercase transition-all hover:scale-105 shadow-[0_0_40px_rgba(234,179,8,0.5)] overflow-hidden border border-yellow-300 ring-4 ring-transparent focus:ring-yellow-200"
+                        >
                             <span className="relative z-10">Accept God Seed</span>
                             <div className="absolute inset-0 bg-white/40 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                         </button>
+                    </div>
+                     <div className="mt-8 text-[10px] text-yellow-500/50 uppercase tracking-widest animate-pulse">
+                        [PRESS SPACE TO ACCEPT]
                     </div>
                 </div>
             </div>

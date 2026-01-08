@@ -4,7 +4,7 @@ const ProjectileDodgeGame = ({ onComplete, difficulty = 1 }) => {
   const canvasRef = useRef(null);
   const requestRef = useRef();
   
-  // Game State Refs (Persist across renders)
+  // Game State Refs
   const gameStateRef = useRef({
       player: { 
           x: 0, 
@@ -21,7 +21,6 @@ const ProjectileDodgeGame = ({ onComplete, difficulty = 1 }) => {
       initialized: false
   });
 
-  // Keep latest callback current without triggering effects
   const onCompleteRef = useRef(onComplete);
   useEffect(() => {
       onCompleteRef.current = onComplete;
@@ -32,26 +31,14 @@ const ProjectileDodgeGame = ({ onComplete, difficulty = 1 }) => {
 
   // Ability State
   const abilityRef = useRef({
-      charging: false,
-      chargeStart: 0,
       hasUsed: false,
       shards: [],
       pulseAnim: 0,
-      pulsePower: 0
   });
 
-  // Constants
-  const FULL_CHARGE_TIME = 1000;
-  
   // Difficulty Config
-  // REBALANCE: Start easier, ramp up during the round.
-  
-  // Base Speed: Starts slow (3) + small scaling per difficulty
   const baseSpeed = 2 + (difficulty * 0.5);
-  
-  // Base Spawn Rate: Starts infrequent (900ms) - gets faster with difficulty
   const baseSpawnRate = Math.max(250, 900 - (difficulty * 50));
-  
   const MAX_BULLETS = 80 + (difficulty * 5); 
   const duration = 7000 + (difficulty * 500);
 
@@ -59,7 +46,7 @@ const ProjectileDodgeGame = ({ onComplete, difficulty = 1 }) => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     
-    // Initialize Game State ONLY ONCE
+    // Initialize Game State
     if (!gameStateRef.current.initialized) {
         gameStateRef.current.player.x = window.innerWidth / 2;
         gameStateRef.current.player.y = window.innerHeight / 2;
@@ -72,16 +59,13 @@ const ProjectileDodgeGame = ({ onComplete, difficulty = 1 }) => {
         canvas.height = window.innerHeight; 
     };
     
-    const releaseShield = () => {
-        const now = Date.now();
-        const chargeDuration = now - abilityRef.current.chargeStart;
-        const linearRatio = Math.min(chargeDuration / FULL_CHARGE_TIME, 1.0);
-        const power = Math.pow(linearRatio, 1.5); 
-
-        abilityRef.current.charging = false;
-        abilityRef.current.hasUsed = true; 
+    const triggerAbility = () => {
+        if (abilityRef.current.hasUsed) return;
         
-        triggerPulse(power);
+        abilityRef.current.hasUsed = true;
+        
+        // Full power immediately
+        triggerPulse();
     };
 
     const handleKeyDown = (e) => { 
@@ -91,18 +75,14 @@ const ProjectileDodgeGame = ({ onComplete, difficulty = 1 }) => {
 
         if (keys.current.hasOwnProperty(e.key)) { keys.current[e.key] = true; }
         
-        if ((e.code === 'Space' || e.code === 'Enter') && !e.repeat && !abilityRef.current.charging && !abilityRef.current.hasUsed) {
-            abilityRef.current.charging = true;
-            abilityRef.current.chargeStart = Date.now();
+        // Instant trigger on press
+        if ((e.code === 'Space' || e.code === 'Enter') && !e.repeat) {
+            triggerAbility();
         }
     };
 
     const handleKeyUp = (e) => { 
         if (keys.current.hasOwnProperty(e.key)) keys.current[e.key] = false; 
-        
-        if ((e.code === 'Space' || e.code === 'Enter') && abilityRef.current.charging) {
-            releaseShield();
-        }
     };
 
     window.addEventListener('resize', handleResize);
@@ -110,8 +90,8 @@ const ProjectileDodgeGame = ({ onComplete, difficulty = 1 }) => {
     window.addEventListener('keyup', handleKeyUp);
     handleResize();
 
-    const createBreakEffect = (power) => {
-        const particleCount = 12 + Math.floor(power * 12);
+    const createBreakEffect = () => {
+        const particleCount = 24; // Max particles
         const player = gameStateRef.current.player;
         const shieldRadius = player.radius; 
 
@@ -124,8 +104,8 @@ const ProjectileDodgeGame = ({ onComplete, difficulty = 1 }) => {
             abilityRef.current.shards.push({
                 x: sx,
                 y: sy,
-                vx: Math.cos(angle) * (2 + Math.random() * 4 * (0.5 + power)), 
-                vy: Math.sin(angle) * (2 + Math.random() * 4 * (0.5 + power)),
+                vx: Math.cos(angle) * (4 + Math.random() * 6), // Faster shard particles
+                vy: Math.sin(angle) * (4 + Math.random() * 6),
                 alpha: 1.0,
                 size: 2 + Math.random() * 3,
                 hue: hue 
@@ -133,12 +113,12 @@ const ProjectileDodgeGame = ({ onComplete, difficulty = 1 }) => {
         }
     };
 
-    const triggerPulse = (power) => {
+    const triggerPulse = () => {
         abilityRef.current.pulseAnim = 1.0; 
-        abilityRef.current.pulsePower = power; 
-        createBreakEffect(power);
+        createBreakEffect();
 
-        const pulseRange = 140 + (power * 100); 
+        // Large range for full blast
+        const pulseRange = 300; 
         const player = gameStateRef.current.player;
 
         gameStateRef.current.bullets.forEach(b => {
@@ -148,7 +128,10 @@ const ProjectileDodgeGame = ({ onComplete, difficulty = 1 }) => {
 
             if (dist < pulseRange) {
                 const pushAngle = Math.atan2(dy, dx);
-                const deflectionStrength = 3 + (power * 16); 
+                
+                // FORCE: Always high deflection (30) to send them flying far
+                const deflectionStrength = 30; 
+                
                 b.vx += Math.cos(pushAngle) * deflectionStrength;
                 b.vy += Math.sin(pushAngle) * deflectionStrength;
             }
@@ -183,12 +166,6 @@ const ProjectileDodgeGame = ({ onComplete, difficulty = 1 }) => {
           player.y += (dy / length) * player.speed;
       }
 
-      // Knockback Physics
-      player.x += player.kx;
-      player.y += player.ky;
-      player.kx *= 0.9;
-      player.ky *= 0.9;
-      
       // Boundaries
       player.x = Math.max(player.radius, Math.min(width - player.radius, player.x));
       player.y = Math.max(player.radius, Math.min(height - player.radius, player.y));
@@ -224,15 +201,16 @@ const ProjectileDodgeGame = ({ onComplete, difficulty = 1 }) => {
       // --- PULSE VISUAL ---
       if (abilityRef.current.pulseAnim > 0) {
           abilityRef.current.pulseAnim -= 0.04;
-          const p = abilityRef.current.pulsePower;
-          const maxRadius = 160 + (p * 120);
+          
+          // Max Radius fixed to high value
+          const maxRadius = 350;
           const currentRadius = maxRadius * (1 - abilityRef.current.pulseAnim) + player.radius;
           const rainbowHue = (now / 2) % 360;
           
           ctx.beginPath();
           ctx.arc(player.x, player.y, currentRadius, 0, Math.PI * 2);
           ctx.strokeStyle = `hsla(${rainbowHue}, 100%, 60%, ${abilityRef.current.pulseAnim})`;
-          ctx.lineWidth = (10 + p * 40) * abilityRef.current.pulseAnim;
+          ctx.lineWidth = 50 * abilityRef.current.pulseAnim; // Thicker ring
           ctx.stroke();
 
           if (abilityRef.current.pulseAnim > 0.2) {
@@ -244,10 +222,9 @@ const ProjectileDodgeGame = ({ onComplete, difficulty = 1 }) => {
           }
       }
 
-      // --- SPAWN BULLETS (Progressive Difficulty) ---
-      // Ramping: Speed increases, Spawn Interval decreases as round progresses
-      const currentSpeed = baseSpeed + (progress * 4); // Speed ramps up +4 over duration
-      const currentSpawnRate = baseSpawnRate * (1 - (progress * 0.6)); // Rate accelerates to 40% of base interval
+      // --- SPAWN BULLETS ---
+      const currentSpeed = baseSpeed + (progress * 4);
+      const currentSpawnRate = baseSpawnRate * (1 - (progress * 0.6));
 
       if (now - gameStateRef.current.lastBulletSpawn > currentSpawnRate && bullets.length < MAX_BULLETS) {
           const side = Math.floor(Math.random() * 4); 
@@ -256,7 +233,7 @@ const ProjectileDodgeGame = ({ onComplete, difficulty = 1 }) => {
           if (side === 0) { bx = Math.random() * width; by = -10; }      
           else if (side === 1) { bx = width + 10; by = Math.random() * height; } 
           else if (side === 2) { bx = Math.random() * width; by = height + 10; } 
-          else { bx = -10; by = Math.random() * height; }               
+          else { bx = -10; by = Math.random() * height; }              
 
           const angle = Math.atan2(player.y - by, player.x - bx);
           vx = Math.cos(angle) * currentSpeed;
@@ -282,58 +259,19 @@ const ProjectileDodgeGame = ({ onComplete, difficulty = 1 }) => {
 
           const dist = Math.sqrt(Math.pow(b.x - player.x, 2) + Math.pow(b.y - player.y, 2));
           
+          // Collision Check - No Shield Mechanic to save you now, just death
           if (dist < player.radius + 6) { 
-              if (abilityRef.current.charging) {
-                  // SHIELD BREAK EVENT
-                  abilityRef.current.charging = false;
-                  abilityRef.current.hasUsed = true; 
-                  
-                  const chargeTime = now - abilityRef.current.chargeStart;
-                  const linearRatio = Math.min(chargeTime / FULL_CHARGE_TIME, 1.0);
-                  const power = Math.pow(linearRatio, 1.5); 
-
-                  const maxKnockback = 25;
-                  const minKnockback = 5;
-                  const force = maxKnockback - (power * (maxKnockback - minKnockback));
-
-                  const angle = Math.atan2(player.y - b.y, player.x - b.x);
-                  player.kx = Math.cos(angle) * force;
-                  player.ky = Math.sin(angle) * force;
-
-                  createBreakEffect(power);
-
-                  bullets.splice(i, 1);
-                  continue; 
-              } else {
-                  if (onCompleteRef.current) onCompleteRef.current(false); 
-                  return;
-              }
+              if (onCompleteRef.current) onCompleteRef.current(false); 
+              return;
           }
 
-          if (b.x < -50 || b.x > width + 50 || b.y < -50 || b.y > height + 50) {
+          // Cleanup out of bounds
+          if (b.x < -100 || b.x > width + 100 || b.y < -100 || b.y > height + 100) {
               bullets.splice(i, 1);
           }
       }
 
       ctx.shadowBlur = 0;
-
-      // --- DRAW SHIELD ---
-      if (abilityRef.current.charging) {
-          const chargeTime = now - abilityRef.current.chargeStart;
-          const chargeRatio = Math.min(chargeTime / FULL_CHARGE_TIME, 1.0);
-          const visualPower = Math.pow(chargeRatio, 1.5);
-          
-          const shieldRadius = player.radius;
-          const rainbowHue = (now / 5) % 360;
-          const rainbowColor = `hsl(${rainbowHue}, 100%, 60%)`;
-
-          ctx.beginPath();
-          ctx.arc(player.x, player.y, shieldRadius, 0, Math.PI * 2);
-          ctx.strokeStyle = rainbowColor; 
-          ctx.lineWidth = 2 + visualPower * 1.5; 
-          ctx.setLineDash([]);
-          ctx.stroke();
-      }
 
       // --- DRAW PLAYER ---
       if (player.trail.length > 1) {
@@ -357,26 +295,24 @@ const ProjectileDodgeGame = ({ onComplete, difficulty = 1 }) => {
       ctx.shadowBlur = 0; 
 
       // --- HUD ---
+      // Progress Bar
       ctx.fillStyle = '#38bdf8';
       ctx.fillRect(0, height - 5, width * (1 - progress), 5);
       
-      if (abilityRef.current.charging) {
-          const chargeTime = now - abilityRef.current.chargeStart;
-          const chargePct = Math.min(chargeTime / FULL_CHARGE_TIME, 1.0);
-          const rainbowHue = (now / 5) % 360;
-          
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-          ctx.fillRect(player.x - 20, player.y - 35, 40, 4);
-          
-          ctx.fillStyle = `hsl(${rainbowHue}, 100%, 60%)`; 
-          ctx.fillRect(player.x - 20, player.y - 35, 40 * chargePct, 4);
-          
-      } else if (!abilityRef.current.hasUsed) {
+      // Ability Indicator
+      if (!abilityRef.current.hasUsed) {
           ctx.textAlign = "center";
           const rainbowHue = (now / 5) % 360;
           ctx.fillStyle = `hsl(${rainbowHue}, 100%, 60%)`;
           ctx.font = '10px monospace';
-          ctx.fillText('[SPACE]', player.x, player.y - 35);
+          ctx.fillText('[SPACE] BLAST', player.x, player.y - 25);
+          
+          // Draw a small "Ready" ring around player
+          ctx.strokeStyle = `hsl(${rainbowHue}, 100%, 60%)`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(player.x, player.y, player.radius + 5, 0, Math.PI*2);
+          ctx.stroke();
       }
 
       requestRef.current = requestAnimationFrame(animate);

@@ -1,17 +1,16 @@
 import React from 'react';
 import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Bar, Cell, ReferenceLine, Label } from 'recharts';
 import { config } from '../../config/appConfig.js';
-import { getChartColors, getHighContrastColor } from '../../utils/themeHelpers.js';
+import { getHighContrastColor } from '../../utils/themeHelpers.js';
 import ChartGradientDefs from '../UI/ChartGradientDefs.jsx';
 
-const DomainChart = ({ data, isWeighted, appSettings }) => {
-  const colors = getChartColors(appSettings);
-  const passingLineColor = getHighContrastColor(appSettings);
-  
+const DomainChart = ({ data, isWeighted, appSettings, rankingEngine }) => {
+  const passingLineColor = getHighContrastColor(appSettings?.theme ?? appSettings);
+
   const axisStroke = "var(--app-text-muted)";
   const labelFill = "var(--app-text-muted)";
-  const gridStroke = "var(--app-border)"; 
-  
+  const gridStroke = "var(--app-border)";
+
   return (
     <div className="app-bg-surface rounded-xl shadow-sm border app-border-muted p-4 sm:p-6">
       <h2 className="text-lg font-semibold mb-4 app-text-main">
@@ -24,20 +23,17 @@ const DomainChart = ({ data, isWeighted, appSettings }) => {
           <XAxis type="number" domain={[0, 100]} fontSize={12} unit="%" stroke={axisStroke} tick={{ fill: labelFill }} />
           <YAxis dataKey="domain" type="category" width={100} fontSize={12} interval={0} stroke={axisStroke} tick={{ fill: labelFill }} />
           <Tooltip
-            formatter={(value) => [`${value}%`, isWeighted ? 'Weighted Average' : 'Raw Average']}
+            formatter={(value) => [`${value}%`, isWeighted ? 'Weighted Avg' : 'Raw Avg']}
             contentStyle={{ backgroundColor: 'var(--app-bg-surface)', borderColor: 'var(--app-primary)', color: 'var(--app-text-main)' }}
             itemStyle={{ color: 'var(--app-text-main)' }}
             cursor={{ fill: 'var(--app-text-muted)', opacity: 0.1 }}
           />
           <Bar dataKey="accuracy" radius={[0, 5, 5, 0]}>
             {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={
-                (appSettings.theme === 'red') ? colors[0] :
-                entry.accuracy >= 80 ? colors[3] : 
-                entry.accuracy >= 60 ? colors[2] : 
-                entry.accuracy >= 40 ? colors[1] : 
-                colors[0]
-              } />
+              <Cell
+                key={`cell-${index}`}
+                fill={rankingEngine ? rankingEngine.getRankColor(entry.rank) : 'var(--chart-1)'}
+              />
             ))}
           </Bar>
           <ReferenceLine y={0} stroke={gridStroke} />

@@ -1,23 +1,26 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 const CornerExpansionGame = ({ onComplete, difficulty = 1, round = 1 }) => {
   const canvasRef = useRef(null);
   const requestRef = useRef();
   const startTimeRef = useRef(Date.now());
   const flashHistory = useRef([]); 
-  const isEnded = useRef(false); // FIX: Track ended state to prevent double calls/loops
+  const isEnded = useRef(false);
 
   // Input State
   const keys = useRef({ ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, w: false, a: false, s: false, d: false });
   
   const duration = 4500 + (difficulty * 200);
 
-  // Safe Zone Speed
-  let safeZoneSpeed = 4; 
-  if (round >= 45) safeZoneSpeed = 8;
-  else if (round >= 35) safeZoneSpeed = 7;
-  else if (round >= 25) safeZoneSpeed = 6;
-  else if (round >= 15) safeZoneSpeed = 5;
+  // 2. ADJUSTED SPEED: Much slower in early rounds
+  let safeZoneSpeed = 3; // Default starting speed is much lower now
+  if (round < 5) safeZoneSpeed = 3.2;
+  else if (round < 10) safeZoneSpeed = 4;
+  else if (round < 15) safeZoneSpeed = 5;
+  else if (round < 25) safeZoneSpeed = 6;
+  else if (round < 35) safeZoneSpeed = 7;
+  else if (round >= 45) safeZoneSpeed = 8;
+  else safeZoneSpeed = 7;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -37,14 +40,29 @@ const CornerExpansionGame = ({ onComplete, difficulty = 1, round = 1 }) => {
       y: height/2 + Math.sin(offsetAngle) * offsetDist, 
       radius: 100,
       angle: Math.random() * Math.PI * 2,
-      speed: 2
+      speed: 2 // Rotation speed
     };
 
+    // 1. RANDOMIZED WINDOW: Added activationTime to stagger when they close in
+    const createCorner = (id, x, y, color) => ({
+        id, 
+        color, 
+        x, 
+        y, 
+        speed: 0.005 + Math.random() * 0.005, 
+        offset: Math.random() * Math.PI * 2, 
+        flashIntensity: 0, 
+        flashDecay: 0.1, 
+        remainingFlashes: 0,
+        // Randomly decide when this specific corner starts closing in (between 2s and 3.5s)
+        activationTime: 2000 + (Math.random() * 1500) 
+    });
+
     const corners = [
-        { id: 'TL', color: '#06b6d4', x: 0, y: 0, speed: 0.005 + Math.random() * 0.005, offset: Math.random() * Math.PI * 2, flashIntensity: 0, flashDecay: 0.1, remainingFlashes: 0 },         
-        { id: 'TR', color: '#a855f7', x: width, y: 0, speed: 0.005 + Math.random() * 0.005, offset: Math.random() * Math.PI * 2, flashIntensity: 0, flashDecay: 0.1, remainingFlashes: 0 },      
-        { id: 'BL', color: '#ec4899', x: 0, y: height, speed: 0.005 + Math.random() * 0.005, offset: Math.random() * Math.PI * 2, flashIntensity: 0, flashDecay: 0.1, remainingFlashes: 0 },    
-        { id: 'BR', color: '#10b981', x: width, y: height, speed: 0.005 + Math.random() * 0.005, offset: Math.random() * Math.PI * 2, flashIntensity: 0, flashDecay: 0.1, remainingFlashes: 0 } 
+        createCorner('TL', 0, 0, '#06b6d4'),
+        createCorner('TR', width, 0, '#a855f7'),
+        createCorner('BL', 0, height, '#ec4899'),
+        createCorner('BR', width, height, '#10b981')
     ];
 
     const handleResize = () => {
@@ -63,7 +81,7 @@ const CornerExpansionGame = ({ onComplete, difficulty = 1, round = 1 }) => {
     handleResize();
 
     const animate = () => {
-      if (isEnded.current) return; // STOP LOOP if ended
+      if (isEnded.current) return;
 
       const now = Date.now();
       const elapsed = now - startTimeRef.current;
@@ -78,6 +96,7 @@ const CornerExpansionGame = ({ onComplete, difficulty = 1, round = 1 }) => {
       // --- LOGIC ---
       flashHistory.current = flashHistory.current.filter(t => now - t < 500);
 
+      // Safe zone still starts moving at 2000ms so player knows where to go
       if (elapsed > 2000) {
         safeZone.x += Math.cos(safeZone.angle) * safeZoneSpeed;
         safeZone.y += Math.sin(safeZone.angle) * safeZoneSpeed;
@@ -118,13 +137,21 @@ const CornerExpansionGame = ({ onComplete, difficulty = 1, round = 1 }) => {
         const breathingAmount = 80 + (progress * 70); 
         let currentRadius = Math.max(0, baseGrowth + (pulse * breathingAmount));
 
-        if (elapsed > 2000) {
+        // 1. RANDOMIZED WINDOW LOGIC APPLIED HERE
+        // Use individual corner.activationTime instead of global 2000ms
+        if (elapsed > corner.activationTime) {
           const dxToSafe = safeZone.x - corner.x;
           const dyToSafe = safeZone.y - corner.y;
           const distToSafe = Math.sqrt(dxToSafe * dxToSafe + dyToSafe * dyToSafe);
+          
+          // Calculate target radius to barely touch safe zone
           const targetRadius = distToSafe - safeZone.radius;
-          const easeProgress = Math.min(1, (elapsed - 2000) / 1000);
+          
+          // Smooth transition calculation
+          const timeSinceActivation = elapsed - corner.activationTime;
+          const easeProgress = Math.min(1, timeSinceActivation / 1000); // Take 1 second to fully lock on
           const easedProgress = easeProgress * easeProgress * (3 - 2 * easeProgress);
+          
           currentRadius = currentRadius + (targetRadius - currentRadius) * easedProgress;
         }
 
@@ -165,7 +192,8 @@ const CornerExpansionGame = ({ onComplete, difficulty = 1, round = 1 }) => {
         const dx = player.x - corner.x;
         const dy = player.y - corner.y;
         const dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist < currentRadius - 10 || dist < 100) { // 100 is safeZoneMin
+        // Collision slightly more forgiving in early game logic? No, keeping hitboxes consistent.
+        if (dist < currentRadius - 10) { 
             collision = true;
         }
       });
@@ -217,9 +245,9 @@ const CornerExpansionGame = ({ onComplete, difficulty = 1, round = 1 }) => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       cancelAnimationFrame(requestRef.current);
-      isEnded.current = true; // Ensure loop stops on unmount
+      isEnded.current = true;
     };
-  }, []);
+  }, [difficulty, round]); // Added dependencies to reset properly on round change
 
   return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />;
 };

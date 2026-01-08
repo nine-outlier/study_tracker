@@ -57,6 +57,20 @@ export const Angel = ({ onAccept, onReject }) => {
     }, 3000);
   };
 
+  // Keyboard Support
+  useEffect(() => {
+    if (stage < 3) return; // Only allow interaction after intro
+
+    const handleKeyDown = (e) => {
+        if (['Space', 'Enter'].includes(e.code)) {
+            e.preventDefault();
+            handleAccept();
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [stage, phase]);
+
   const bgClass = stage < 2 ? 'bg-black' : 'bg-sky-950/95';
   const lightColor = "rgba(207,250,254,0.9)";
 
@@ -86,10 +100,16 @@ export const Angel = ({ onAccept, onReject }) => {
                         </div>
                     </div>
                     <div className="flex flex-col md:flex-row gap-6 justify-center items-center">
-                        <button onClick={handleAccept} className="group relative px-12 py-5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-full font-black text-xl tracking-widest uppercase transition-all hover:scale-105 shadow-[0_0_40px_rgba(34,211,238,0.5)] overflow-hidden border border-cyan-300/50">
+                        <button 
+                            onClick={handleAccept} 
+                            className="group relative px-12 py-5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-full font-black text-xl tracking-widest uppercase transition-all hover:scale-105 shadow-[0_0_40px_rgba(34,211,238,0.5)] overflow-hidden border border-cyan-300/50 ring-4 ring-transparent focus:ring-cyan-200"
+                        >
                             <span className="relative z-10">Receive Blessing</span>
                             <div className="absolute inset-0 bg-white/30 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                         </button>
+                    </div>
+                    <div className="mt-8 text-[10px] text-cyan-300/50 uppercase tracking-widest animate-pulse">
+                        [PRESS SPACE TO ACCEPT]
                     </div>
                 </div>
             </div>

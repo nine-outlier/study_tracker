@@ -56,6 +56,7 @@ export const GoldenDevil = ({ onAccept, onReject }) => {
   const [stage, setStage] = useState(0);
   const [phase, setPhase] = useState('ENTRY');
   const [beams, setBeams] = useState([]);
+  const [selectedIndex, setSelectedIndex] = useState(0); // 0: Accept (Top), 1: Reject (Bottom)
 
   useEffect(() => {
     const t1 = setTimeout(() => setStage(1), 500);
@@ -117,6 +118,23 @@ export const GoldenDevil = ({ onAccept, onReject }) => {
     }, 3000); 
   };
 
+  // Keyboard Support
+  useEffect(() => {
+    if (stage < 3) return;
+
+    const handleKeyDown = (e) => {
+        if (['ArrowLeft', 'KeyA', 'ArrowRight', 'KeyD', 'ArrowUp', 'KeyW', 'ArrowDown', 'KeyS'].includes(e.code)) {
+             setSelectedIndex(prev => prev === 0 ? 1 : 0);
+        } else if (['Space', 'Enter'].includes(e.code)) {
+             e.preventDefault();
+             if (selectedIndex === 0) handleAccept();
+             if (selectedIndex === 1) onReject();
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [stage, selectedIndex, onReject, phase]);
+
   let bgClass = (stage < 2 ? 'bg-black' : 'bg-yellow-950/95');
   if (phase === 'SELECTED') bgClass = 'bg-yellow-950/90 animate-crack-flicker crack-overlay';
 
@@ -159,13 +177,33 @@ export const GoldenDevil = ({ onAccept, onReject }) => {
                         </div>
                     </div>
                     <div className="flex flex-col items-center gap-6">
-                        <button onClick={handleAccept} className="w-full max-w-md py-6 rounded-xl bg-gradient-to-r from-yellow-600 to-yellow-500 text-black font-black text-2xl hover:scale-105 transition-transform shadow-[0_0_30px_rgba(234,179,8,0.4)] border border-yellow-300 relative overflow-hidden group">
+                        <button 
+                            onClick={handleAccept} 
+                            className={`w-full max-w-md py-6 rounded-xl text-black font-black text-2xl transition-transform border relative overflow-hidden group
+                                ${selectedIndex === 0 
+                                    ? 'bg-gradient-to-r from-yellow-500 to-yellow-400 scale-105 shadow-[0_0_40px_rgba(234,179,8,0.6)] border-yellow-200'
+                                    : 'bg-gradient-to-r from-yellow-600 to-yellow-500 shadow-[0_0_30px_rgba(234,179,8,0.4)] border-yellow-300'
+                                }
+                            `}
+                        >
                                 <span className="relative z-10">TRIPLE OR NOTHING</span>
                                 <div className="absolute inset-0 bg-white/40 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                         </button>
-                        <button onClick={onReject} className="text-yellow-500/60 hover:text-white text-sm uppercase tracking-widest transition-colors font-bold">
+                        
+                        <button 
+                            onClick={onReject} 
+                            className={`text-sm uppercase tracking-widest transition-colors font-bold
+                                ${selectedIndex === 1 
+                                    ? 'text-white scale-105 shadow-sm'
+                                    : 'text-yellow-500/60 hover:text-white'
+                                }
+                            `}
+                        >
                             Decline & Continue Safely
                         </button>
+                    </div>
+                    <div className="mt-8 text-[10px] text-yellow-500/50 uppercase tracking-widest animate-pulse">
+                        [WASD/ARROWS TO SELECT • SPACE TO CONFIRM]
                     </div>
                 </div>
             </div>

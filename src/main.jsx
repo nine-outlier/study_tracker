@@ -1,59 +1,86 @@
-import './index.css';
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-import App from './App.jsx';
+const { app, BrowserWindow, ipcMain } = require('electron');
+const path = require('path');
+const { autoUpdater } = require('electron-updater');
 
-// ErrorBoundary class definition
-// We keep this here to catch errors at the very top level of the application
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
+let mainWindow;
 
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error: error };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    console.error("Uncaught error in React component:", error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen flex items-center justify-center p-8 bg-slate-50 dark:bg-gray-950 text-slate-900 dark:text-slate-100">
-          <div className="max-w-2xl w-full p-10 bg-white rounded-xl shadow-xl ring-1 ring-slate-200 dark:bg-gray-900 dark:ring-gray-800 text-center">
-            <h1 className="text-2xl font-bold text-red-600 dark:text-red-400">Something went wrong.</h1>
-            <p className="mt-2 text-slate-600 dark:text-slate-300">
-              A critical error occurred. Please restart the application. If the problem persists, check the console for details.
-            </p>
-            <div className="mt-6 text-left">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Error Details</label>
-                <pre className="mt-2 p-4 bg-slate-100 rounded-lg text-xs text-red-700 font-mono overflow-auto dark:bg-gray-950 dark:text-red-300 border border-slate-200 dark:border-gray-800 max-h-64">
-                {this.state.error && this.state.error.toString()}
-                </pre>
-            </div>
-            <button 
-                onClick={() => window.location.reload()} 
-                className="mt-6 px-6 py-2 bg-slate-900 text-white rounded-md hover:bg-slate-800 transition-colors dark:bg-slate-700 dark:hover:bg-slate-600"
-            >
-                Reload Application
-            </button>
-          </div>
-        </div>
-      );
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
     }
+  });
 
-    return this.props.children;
+  mainWindow.loadFile('index.html');
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+
+  return mainWindow;
+}
+
+function sendToRenderer(channel, payload) {
+  try {
+    if (mainWindow && mainWindow.webContents) {
+      mainWindow.webContents.send(channel, payload);
+    }
+  } catch (e) {
+    // ignore
   }
 }
 
-const container = document.getElementById('root');
-const root = createRoot(container);
+function setupAutoUpdates() {
+  // In dev, autoUpdater generally won’t work unless running a packaged app.
+  // You can keep it enabled, but it will usually do nothing in `npm run start`.
+  autoUpdater.autoDownload = true;
 
-root.render(
-  <ErrorBoundary>
-    <App />
-  </ErrorBoundary>
-);
+  // True “auto update”: install immediately when downloaded.
+  // If you prefer “install on quit”, comment this handler.
+  autoUpdater.on('update-downloaded', (info) => {
+    sendToRenderer('update:downloaded', info);
+
+    // Small delay so renderer can show a message if you want
+    setTimeout(() => {
+      autoUpdater.quitAndInstall(false, true);
+    }, 1500);
+  });
+
+  autoUpdater.on('checking-for-update', () => sendToRenderer('update:checking'));
+  autoUpdater.on('update-available', (info) => sendToRenderer('update:available', info));
+  autoUpdater.on('update-not-available', (info) => sendToRenderer('update:none', info));
+  autoUpdater.on('download-progress', (progress) => sendToRenderer('update:progress', progress));
+  autoUpdater.on('error', (err) => sendToRenderer('update:error', err?.message || String(err)));
+
+  // Optional: renderer can manually trigger checks
+  ipcMain.handle('update:check', async () => {
+    return autoUpdater.checkForUpdates();
+  });
+
+  // Kick off initial check shortly after ready
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch(() => {});
+  }, 2000);
+
+  // Check periodically (30 min)
+  setInterval(() => {
+    autoUpdater.checkForUpdates().catch(() => {});
+  }, 30 * 60 * 1000);
+}
+
+app.whenReady().then(() => {
+  createWindow();
+  setupAutoUpdates();
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});

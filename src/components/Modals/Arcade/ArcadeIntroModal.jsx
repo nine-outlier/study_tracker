@@ -7,6 +7,7 @@ const RAINBOW_BORDER = "border-transparent bg-gradient-to-r from-pink-500 via-ye
 
 const ArcadeIntroModal = ({ onStart, onExit, highScore = 0 }) => {
   const [isBlinking, setIsBlinking] = useState(true);
+  const [selectedIndex, setSelectedIndex] = useState(0); // 0: Start, 1: Exit
 
   // Classic "Insert Coin" / "Press Start" blink effect
   useEffect(() => {
@@ -16,8 +17,47 @@ const ArcadeIntroModal = ({ onStart, onExit, highScore = 0 }) => {
     return () => clearInterval(interval);
   }, []);
 
+  // Keyboard Navigation Handler
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      e.preventDefault(); // Prevent default scrolling/browser actions
+
+      switch (e.code) {
+        // Navigation (Up/Down/Left/Right/WASD)
+        case 'ArrowUp':
+        case 'KeyW':
+        case 'ArrowLeft':
+        case 'KeyA':
+          setSelectedIndex((prev) => (prev === 0 ? 1 : 0));
+          break;
+        case 'ArrowDown':
+        case 'KeyS':
+        case 'ArrowRight':
+        case 'KeyD':
+          setSelectedIndex((prev) => (prev === 0 ? 1 : 0));
+          break;
+
+        // Actions
+        case 'Enter':
+        case 'Space':
+          if (selectedIndex === 0) onStart();
+          if (selectedIndex === 1) onExit();
+          break;
+        case 'Escape':
+          onExit();
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedIndex, onStart, onExit]);
+
   return (
-    <div className="absolute inset-0 w-full h-full flex flex-col z-50 select-none bg-slate-950 text-white overflow-hidden pixel-font-container transition-colors duration-300">
+    // Added 'cursor-none' to hide mouse
+    <div className="absolute inset-0 w-full h-full flex flex-col z-50 select-none bg-slate-950 text-white overflow-hidden pixel-font-container transition-colors duration-300 cursor-none">
       
       {/* Font Import, Animations & Pixel Styles */}
       <style>{`
@@ -118,34 +158,55 @@ const ArcadeIntroModal = ({ onStart, onExit, highScore = 0 }) => {
       <div className="flex-grow flex flex-col items-center justify-center pb-20 z-30">
          
          {/* 1 PLAYER Selection */}
-         <button 
-            onClick={onStart}
-            className="group relative flex flex-col items-center gap-4 focus:outline-none transition-transform active:scale-95"
-         >
+         {/* Removed onClick, using keyboard state 'selectedIndex' */}
+         <div className={`group relative flex flex-col items-center gap-4 transition-transform duration-200 ${selectedIndex === 0 ? 'scale-110' : 'scale-90 opacity-60'}`}>
             <div className="flex items-center gap-6">
-                {/* Arrow Left - Rainbow */}
-                <div className={`text-4xl md:text-6xl ${RAINBOW_TEXT_ANIMATED} retro-shadow ${isBlinking ? 'opacity-100' : 'opacity-0'}`}>
+                {/* Arrow Left - Shows only if selected */}
+                <div className={`text-4xl md:text-6xl ${RAINBOW_TEXT_ANIMATED} retro-shadow ${selectedIndex === 0 && isBlinking ? 'opacity-100' : 'opacity-0'}`}>
                   ▶
                 </div>
 
-                {/* Main Text - Rainbow & Blinking */}
+                {/* Main Text - Rainbow & Blinking if selected */}
                 <div className={`text-4xl md:text-6xl font-bold tracking-wider transition-all duration-100 retro-shadow
-                    ${isBlinking ? RAINBOW_TEXT_ANIMATED : 'text-slate-700'}
+                    ${selectedIndex === 0 ? (isBlinking ? RAINBOW_TEXT_ANIMATED : 'text-slate-700') : 'text-slate-500'}
                 `}>
                     1 PLAYER
                 </div>
 
-                {/* Arrow Right - Rainbow */}
-                <div className={`text-4xl md:text-6xl transform rotate-180 ${RAINBOW_TEXT_ANIMATED} retro-shadow ${isBlinking ? 'opacity-100' : 'opacity-0'}`}>
+                {/* Arrow Right - Shows only if selected */}
+                <div className={`text-4xl md:text-6xl transform rotate-180 ${RAINBOW_TEXT_ANIMATED} retro-shadow ${selectedIndex === 0 && isBlinking ? 'opacity-100' : 'opacity-0'}`}>
                   ▶
                 </div>
             </div>
             
-            {/* Start Prompt */}
-            <div className={`text-xs md:text-sm uppercase tracking-[0.3em] mt-10 px-6 py-3 rounded-full border-2 font-bold animate-pulse ${RAINBOW_BORDER} ${RAINBOW_TEXT_ANIMATED} bg-slate-900/80`}>
-                  PRESS ENTER TO START
+            {/* Start Prompt - Shows only if selected */}
+            {selectedIndex === 0 && (
+                <div className={`text-xs md:text-sm uppercase tracking-[0.3em] mt-10 px-6 py-3 rounded-full border-2 font-bold animate-pulse ${RAINBOW_BORDER} ${RAINBOW_TEXT_ANIMATED} bg-slate-900/80`}>
+                     PRESS ENTER OR SPACE
+                </div>
+            )}
+         </div>
+
+         {/* Exit Selection - Visually dimmed unless selected */}
+         <div className={`mt-12 group relative flex flex-col items-center gap-4 transition-transform duration-200 ${selectedIndex === 1 ? 'scale-110 opacity-100' : 'scale-90 opacity-50'}`}>
+            <div className="flex items-center gap-6">
+                {/* Arrow Left */}
+                <div className={`text-2xl md:text-4xl text-red-500 retro-shadow ${selectedIndex === 1 && isBlinking ? 'opacity-100' : 'opacity-0'}`}>
+                  ▶
+                </div>
+
+                <div className={`text-2xl md:text-4xl font-bold tracking-wider transition-all duration-100 retro-shadow
+                    ${selectedIndex === 1 ? 'text-red-500' : 'text-slate-600'}
+                `}>
+                    EXIT GAME
+                </div>
+
+                {/* Arrow Right */}
+                <div className={`text-2xl md:text-4xl text-red-500 transform rotate-180 retro-shadow ${selectedIndex === 1 && isBlinking ? 'opacity-100' : 'opacity-0'}`}>
+                  ▶
+                </div>
             </div>
-         </button>
+         </div>
 
       </div>
 
@@ -157,9 +218,9 @@ const ArcadeIntroModal = ({ onStart, onExit, highScore = 0 }) => {
       </div>
       
       <div className="absolute bottom-8 left-8 text-left z-30">
-         <button onClick={onExit} className="text-xs text-red-500 hover:text-red-400 uppercase tracking-widest hover:underline font-bold">
-            [ESC] EXIT SYSTEM
-         </button>
+         <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">
+           [WASD / ARROWS] MOVE • [SPACE] SELECT • [ESC] BACK
+         </p>
       </div>
 
     </div>

@@ -1,8 +1,46 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 const ArcadePauseModal = ({ onResume, onQuit, score, round }) => {
+  const [selectedIndex, setSelectedIndex] = useState(0); // 0: Resume, 1: Quit
+
+  // Keyboard Navigation Handler
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      e.preventDefault(); // Prevent scrolling
+
+      switch (e.code) {
+        // Navigation (Toggle between options)
+        case 'ArrowUp':
+        case 'KeyW':
+        case 'ArrowDown':
+        case 'KeyS':
+          setSelectedIndex((prev) => (prev === 0 ? 1 : 0));
+          break;
+
+        // Selection
+        case 'Enter':
+        case 'Space':
+          if (selectedIndex === 0) onResume();
+          if (selectedIndex === 1) onQuit();
+          break;
+
+        // Escape resumes the game
+        case 'Escape':
+          onResume();
+          break;
+
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedIndex, onResume, onQuit]);
+
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/80 backdrop-blur-md animate-fadeIn">
+    // Added 'cursor-none' and 'select-none'
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/80 backdrop-blur-md animate-fadeIn cursor-none select-none">
       <div className="w-full max-w-md p-8 rounded-2xl border border-slate-800 bg-slate-900/90 shadow-2xl relative overflow-hidden">
         
         {/* Background Scanline Effect */}
@@ -33,21 +71,41 @@ const ArcadePauseModal = ({ onResume, onQuit, score, round }) => {
           </div>
 
           {/* Actions */}
-          <div className="space-y-3">
-            <button 
-              onClick={onResume}
-              className="w-full py-4 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold tracking-widest uppercase transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-cyan-900/20"
-            >
-              Resume Game
-            </button>
+          <div className="space-y-4">
             
-            <button 
-              onClick={onQuit}
-              className="w-full py-4 rounded-xl border border-slate-700 hover:border-red-500 hover:text-red-400 text-slate-500 font-bold tracking-widest uppercase transition-all"
-            >
-              Quit Run
-            </button>
+            {/* Resume Button */}
+            <div className={`relative w-full transition-all duration-200 ${selectedIndex === 0 ? 'scale-105' : 'scale-100 opacity-70'}`}>
+                <div 
+                  className={`w-full py-4 rounded-xl font-bold tracking-widest uppercase shadow-lg border-2 
+                    ${selectedIndex === 0 
+                        ? 'bg-cyan-600 text-white border-cyan-400 shadow-cyan-900/40' 
+                        : 'bg-slate-800 text-slate-400 border-slate-700'
+                    }`}
+                >
+                  Resume Game
+                </div>
+            </div>
+            
+            {/* Quit Button */}
+            <div className={`relative w-full transition-all duration-200 ${selectedIndex === 1 ? 'scale-105' : 'scale-100 opacity-70'}`}>
+                <div 
+                  className={`w-full py-4 rounded-xl font-bold tracking-widest uppercase border-2 
+                    ${selectedIndex === 1 
+                        ? 'bg-red-500/10 text-red-400 border-red-500 shadow-red-900/20' 
+                        : 'bg-transparent text-slate-500 border-slate-800'
+                    }`}
+                >
+                  Quit Run
+                </div>
+            </div>
+
           </div>
+          
+          {/* Footer Hint */}
+          <div className="mt-8 text-[10px] text-slate-600 uppercase tracking-widest">
+             [WASD / ARROWS] to Navigate • [SPACE] to Select
+          </div>
+
         </div>
       </div>
     </div>

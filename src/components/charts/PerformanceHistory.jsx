@@ -1,24 +1,7 @@
 import React from 'react';
 import { config } from '../../config/appConfig.js';
 
-// Local Semantic Logic for colors inside the list
-const getScoreSemanticClass = (score) => {
-  if (score >= 90) return 'app-text-success'; 
-  if (score >= 80) return 'app-text-primary';
-  if (score >= 60) return 'app-text-warning';
-  return 'app-text-danger';
-};
-
-// Bar colors (Left border strip)
-const getBarColorClass = (score, theme) => {
-    if (theme === 'red') return 'app-bg-primary';
-    if (score >= 90) return 'app-bg-success';
-    if (score >= 80) return 'app-bg-primary';
-    if (score >= 60) return 'app-bg-warning';
-    return 'app-bg-danger';
-};
-
-const PerformanceHistory = ({ historyData, trendFilter, setTrendFilter, appSettings }) => {
+const PerformanceHistory = ({ historyData, trendFilter, setTrendFilter, appSettings, rankingEngine }) => {
     
   const toggleFilter = (type) => {
     setTrendFilter(prev => ({ ...prev, [type]: !prev[type] }));
@@ -32,12 +15,9 @@ const PerformanceHistory = ({ historyData, trendFilter, setTrendFilter, appSetti
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-4">
             <h2 className="text-lg font-semibold app-text-main">Performance History</h2>
             
-            {/* Filter Pills */}
             <div className="flex flex-wrap gap-2">
                 {Object.entries(config.TEST_TYPES || {}).map(([key, label]) => {
                    const isActive = trendFilter[key];
-                   
-                   // Dynamic classes using Semantic Theme System
                    const activeClass = 'app-bg-primary app-text-on-primary app-border-primary';
                    const inactiveClass = 'app-bg-surface app-text-muted app-border-muted hover:opacity-80';
 
@@ -61,13 +41,16 @@ const PerformanceHistory = ({ historyData, trendFilter, setTrendFilter, appSetti
                 </div>
             ) : (
                 visibleHistory.map((item, idx) => {
-                    const barColor = getBarColorClass(item.score, appSettings.theme);
-                    const scoreColor = getScoreSemanticClass(item.score);
+                    // Use rankingEngine passed from App.jsx to determine color based on the rank
+                    // Note: historyData items now have a 'rank' property added by App.jsx
+                    const rank = item.rank || (rankingEngine ? rankingEngine.determineRank(item.score) : 'Critical');
+                    
+                    const barColor = rankingEngine ? rankingEngine.getRankClass(rank, 'bg') : '';
+                    const scoreColor = rankingEngine ? rankingEngine.getRankClass(rank, 'text') : '';
 
                     return (
                         <div key={idx} className="flex items-center justify-between p-4 rounded-lg border app-border-muted hover:shadow-sm transition-shadow">
                             <div className="flex items-center gap-4">
-                                {/* Vertical Colored Bar */}
                                 <div className={`w-1.5 h-10 rounded-full ${barColor}`}></div>
                                 
                                 <div>

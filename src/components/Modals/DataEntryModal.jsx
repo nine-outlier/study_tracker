@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import DataForm from '../DataForms/DataForm';
-import StudySessionForm from '../DataForms/StudySessionForm';
 import DomainForm from '../DataForms/DomainForm';
 import ReviewDataForm from '../DataForms/ReviewDataForm';
 import UncategorizedDataForm from '../DataForms/UncategorizedDataForm';
 
 /**
  * DataEntryModal: Main modal for all data input, using tabs.
+ * - Study Session tab removed
+ * - Review tab no longer includes Study Sessions
  */
 const DataEntryModal = ({
   isVisible,
@@ -15,11 +16,9 @@ const DataEntryModal = ({
   uncategorizedEntries,
   existingDomains,
   onAddTest,
-  onAddStudySession,
   onAddDomain,
   onDeleteDomain,
   onDeleteTest,
-  onDeleteStudySession,
   onReassignData,
   onClose,
   showToast,
@@ -30,6 +29,7 @@ const DataEntryModal = ({
   useEffect(() => {
     if (isVisible) {
       setShow(true);
+      setFormType('data'); // always start on Add Test
     }
   }, [isVisible]);
 
@@ -76,13 +76,7 @@ const DataEntryModal = ({
           >
             Add Test
           </button>
-          <button
-            type="button"
-            onClick={() => setFormType('studySession')}
-            className={getTabClass('studySession')}
-          >
-            Study Session
-          </button>
+
           <button
             type="button"
             onClick={() => setFormType('domains')}
@@ -90,6 +84,7 @@ const DataEntryModal = ({
           >
             Domains
           </button>
+
           <button
             type="button"
             onClick={() => setFormType('edit')}
@@ -97,6 +92,7 @@ const DataEntryModal = ({
           >
             Review
           </button>
+
           {/* Show Uncategorized tab only if data exists */}
           {hasUncategorized && (
             <button
@@ -121,14 +117,6 @@ const DataEntryModal = ({
             />
           )}
 
-          {formType === 'studySession' && (
-            <StudySessionForm
-              existingDomains={activeDomainNames}
-              onAddStudySession={onAddStudySession}
-              showToast={showToast}
-            />
-          )}
-
           {formType === 'domains' && (
             <DomainForm
               existingDomains={activeDomainNames}
@@ -142,7 +130,8 @@ const DataEntryModal = ({
             <ReviewDataForm
               certData={certData}
               onDeleteTest={onDeleteTest}
-              onDeleteStudySession={onDeleteStudySession}
+              // ✅ explicitly hide/remove Study Sessions in Review
+              hideStudySessions={true}
             />
           )}
 
