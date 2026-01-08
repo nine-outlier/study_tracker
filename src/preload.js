@@ -8,5 +8,5 @@ contextBridge.exposeInMainWorld('updater', {
   onNone: (cb) => ipcRenderer.on('update:none', (_e, info) => cb(info)),
   onProgress: (cb) => ipcRenderer.on('update:progress', (_e, p) => cb(p)),
   onDownloaded: (cb) => ipcRenderer.on('update:downloaded', (_e, info) => cb(info)),
-  onError: (cb) => ipcRenderer.on('update:error', (_e, msg) => cb(msg))
+  onError: (cb) => ipcRenderer.on('update:error', (_e, msg) => cb(msg)),
 });
