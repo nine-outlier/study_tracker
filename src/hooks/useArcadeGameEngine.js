@@ -12,7 +12,7 @@ export const GAME_STATES = {
   SUMMARY: 'SUMMARY'
 };
 
-export const useArcadeGameEngine = () => {
+export const useArcadeGameEngine = (isPaused = false) => {
   // --- State ---
   const [gameState, setGameState] = useState(GAME_STATES.IDLE);
   const [lives, setLives] = useState(ARCADE_CONFIG.INITIAL_LIVES);
@@ -32,7 +32,9 @@ export const useArcadeGameEngine = () => {
   const lastEncounterRoundRef = useRef(0); 
   
   // Pass round to score manager so it can handle Passive Points scaling
-  const scoreManager = useArcadeScoreManager(gameState, round, encounterType);
+  // If paused, pass a non-scoring state to the manager
+  const scoreState = isPaused ? 'PAUSED' : gameState;
+  const scoreManager = useArcadeScoreManager(scoreState, round, encounterType);
 
   // --- Helpers ---
   const pickNextMinigame = useCallback(() => {

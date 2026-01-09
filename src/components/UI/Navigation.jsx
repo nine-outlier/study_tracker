@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { PlusIcon } from './Icons';
+import { PlusIcon, TrashIcon } from './Icons';
 
 /**
  * Navigation: Top-level tabs for certifications and app sections.
@@ -11,6 +11,7 @@ const Navigation = ({
   activeTab,
   onTabChange,
   onShowAddCertModal,
+  onDeleteCert, // ✅ new
 }) => {
   const [showAllTabs, setShowAllTabs] = useState(false);
 
@@ -43,7 +44,17 @@ const Navigation = ({
     }
   };
 
+  // ✅ Delete active certification
+  const handleDeleteCertClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (activeCert && typeof onDeleteCert === 'function') {
+      onDeleteCert(activeCert);
+    }
+  };
+
   const certKeys = Object.keys(examData || {});
+  const canDelete = certKeys.length > 0 && !!activeCert;
 
   return (
     <div className="mb-6 space-y-4">
@@ -85,6 +96,20 @@ const Navigation = ({
           title="Add Certification"
         >
           <PlusIcon className="w-5 h-5" />
+        </button>
+
+        {/* ✅ Delete Active Certification */}
+        <button
+          onClick={handleDeleteCertClick}
+          disabled={!canDelete}
+          className={`flex-shrink-0 w-9 h-9 rounded-lg border border-dashed app-border-muted flex items-center justify-center transition-colors
+            ${canDelete
+              ? 'text-red-600 hover:opacity-80'
+              : 'text-slate-400 opacity-50 cursor-not-allowed'
+            }`}
+          title="Delete Active Certification"
+        >
+          <TrashIcon className="w-5 h-5" />
         </button>
       </div>
 

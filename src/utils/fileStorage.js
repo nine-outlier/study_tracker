@@ -1,70 +1,58 @@
 // Renderer-safe storage bridge for Electron.
-//
-// IMPORTANT:
-// - Do NOT import 'electron', 'fs', or 'path' in here.
-// - Use window.require so webpack doesn't try to bundle Electron.
+// Uses preload.js (contextBridge) instead of window.require.
 
-const getIpcRenderer = () => {
+const getStorage = () => {
   try {
-    // Only works in Electron renderer when nodeIntegration is enabled
-    if (typeof window !== 'undefined' && typeof window.require === 'function') {
-      const electron = window.require('electron');
-      return electron?.ipcRenderer || null;
-    }
-  } catch (e) {
-    // Not running in Electron (or window.require blocked)
-  }
+    if (typeof window !== 'undefined' && window.storage) return window.storage;
+  } catch {}
   return null;
 };
 
 /**
- * Loads the user data and settings object from the persistent userDataPath file.
- * @returns {Promise<{data: object, settings: object, error?: string}>}
+ * Loads the user data and settings object from persistent storage.
+ * @returns {Promise<{data: object|null, settings: object|null, error?: string}>}
  */
 export async function loadData() {
-  const ipcRenderer = getIpcRenderer();
-  if (!ipcRenderer) {
-    return { data: null, settings: null, error: 'ipcRenderer not available (not running in Electron renderer).' };
+  const storage = getStorage();
+  if (!storage) {
+    return { data: null, settings: null, error: 'storage bridge not available (preload not loaded).' };
   }
-
   try {
-    return await ipcRenderer.invoke('load-data');
+    return await storage.loadData();
   } catch (e) {
     return { data: null, settings: null, error: e?.message || String(e) };
   }
 }
 
 /**
- * Saves the current application state (data and settings) to the persistent file.
- * @param {object} data - The examData object.
- * @param {object} settings - The appSettings object.
+ * Saves the current application state (data and settings) to persistent storage.
+ * @param {object} data
+ * @param {object} settings
  * @returns {Promise<{success: boolean, error?: string}>}
  */
 export async function saveData(data, settings) {
-  const ipcRenderer = getIpcRenderer();
-  if (!ipcRenderer) {
-    return { success: false, error: 'ipcRenderer not available (not running in Electron renderer).' };
+  const storage = getStorage();
+  if (!storage) {
+    return { success: false, error: 'storage bridge not available (preload not loaded).' };
   }
-
   try {
-    return await ipcRenderer.invoke('save-data', data, settings);
+    return await storage.saveData(data, settings);
   } catch (e) {
     return { success: false, error: e?.message || String(e) };
   }
 }
 
 /**
- * Factory reset: deletes the persisted file on disk (implemented in the main process).
+ * Factory reset: deletes persisted file on disk (main process).
  * @returns {Promise<{success: boolean, error?: string}>}
  */
 export async function systemWipe() {
-  const ipcRenderer = getIpcRenderer();
-  if (!ipcRenderer) {
-    return { success: false, error: 'ipcRenderer not available (not running in Electron renderer).' };
+  const storage = getStorage();
+  if (!storage) {
+    return { success: false, error: 'storage bridge not available (preload not loaded).' };
   }
-
   try {
-    return await ipcRenderer.invoke('system-wipe');
+    return await storage.systemWipe();
   } catch (e) {
     return { success: false, error: e?.message || String(e) };
   }

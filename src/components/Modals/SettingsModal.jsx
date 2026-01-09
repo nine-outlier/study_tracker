@@ -110,13 +110,10 @@ const Icons = {
   ),
 };
 
+// Only allow Light + Midnight Blue (users cannot see/select others)
 const THEME_OPTIONS = [
   { id: 'light', name: 'Standard Light', color: '#f8fafc', desc: 'Crisp & Professional' },
   { id: 'midnight', name: 'Midnight Blue', color: '#020617', desc: 'Deep Focus Dark' },
-  { id: 'dark', name: 'Onyx Dark', color: '#000000', desc: 'True Black Contrast' },
-  { id: 'red', name: 'Crimson Ember', color: '#fff1f2', desc: 'High Intensity Mode' },
-  { id: 'paper', name: 'Organic Paper', color: '#fdfbf7', desc: 'Calm Reading Surface' },
-  { id: 'liquidDark', name: 'Liquid Glass', color: '#020617', special: true, desc: 'Dynamic Visuals' },
 ];
 
 const ToggleRow = ({ id, title, desc, icon, checked, onChange }) => (
@@ -146,7 +143,7 @@ const ToggleRow = ({ id, title, desc, icon, checked, onChange }) => (
 
 const AccordionItem = ({ id, title, icon, activeId, onClick, children }) => {
   const isOpen = activeId === id;
-  
+
   return (
     <div className={`overflow-hidden rounded-xl border transition-all duration-300 ${isOpen ? 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 shadow-sm' : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 hover:bg-white dark:hover:bg-slate-900'}`}>
       <button
@@ -161,13 +158,13 @@ const AccordionItem = ({ id, title, icon, activeId, onClick, children }) => {
             {title}
           </span>
         </div>
-        <Icons.ChevronDown 
-          size={16} 
-          className={`text-slate-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} 
+        <Icons.ChevronDown
+          size={16}
+          className={`text-slate-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
-      
-      <div 
+
+      <div
         className={`transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}
       >
         <div className="p-4 pt-0 border-t border-dashed border-slate-100 dark:border-slate-800/50">
@@ -211,9 +208,9 @@ const SettingsModal = ({ isVisible, onClose, onPromptPurge, onSystemWipe, appSet
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6">
       {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" 
-        onClick={onClose} 
+      <div
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
+        onClick={onClose}
       />
 
       {/* Modal Surface */}
@@ -234,11 +231,11 @@ const SettingsModal = ({ isVisible, onClose, onPromptPurge, onSystemWipe, appSet
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3 bg-slate-50/50 dark:bg-black/20">
-          
+
           {/* Section 1: Appearance */}
-          <AccordionItem 
-            id="appearance" 
-            title="Interface & Theme" 
+          <AccordionItem
+            id="appearance"
+            title="Interface & Theme"
             icon={<Icons.Palette size={18} />}
             activeId={activeSection}
             onClick={handleSectionClick}
@@ -262,7 +259,12 @@ const SettingsModal = ({ isVisible, onClose, onPromptPurge, onSystemWipe, appSet
                         className="h-8 w-8 rounded-full border border-slate-200 dark:border-slate-700 shadow-sm shrink-0 flex items-center justify-center"
                         style={{ backgroundColor: theme.color }}
                       >
-                         {selected && <Icons.ShieldCheck size={14} className={theme.id === 'dark' || theme.id === 'midnight' ? 'text-white' : 'text-slate-900'} />}
+                        {selected && (
+                          <Icons.ShieldCheck
+                            size={14}
+                            className={theme.id === 'midnight' ? 'text-white' : 'text-slate-900'}
+                          />
+                        )}
                       </span>
                       <div className="min-w-0">
                         <div className={`text-sm font-semibold ${selected ? 'text-indigo-900 dark:text-indigo-100' : 'text-slate-700 dark:text-slate-300'}`}>
@@ -279,96 +281,96 @@ const SettingsModal = ({ isVisible, onClose, onPromptPurge, onSystemWipe, appSet
             </div>
           </AccordionItem>
 
-          {/* Section 2: Layout (Page Width - UPDATED to Buttons) */}
-          <AccordionItem 
-            id="layout" 
-            title="Page Layout" 
+          {/* Section 2: Layout */}
+          <AccordionItem
+            id="layout"
+            title="Page Layout"
             icon={<Icons.Layout size={18} />}
             activeId={activeSection}
             onClick={handleSectionClick}
           >
-             <div className="space-y-4">
-               <div className="space-y-3">
-                  <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Content Width</div>
-                  
-                  <div className="grid grid-cols-1 gap-2">
-                    {WIDTH_OPTIONS.map((option) => {
-                      const selected = (appSettings.maxWidth || 'max-w-7xl') === option.value;
-                      return (
-                        <button
-                          key={option.value}
-                          onClick={() => updateSetting('maxWidth', option.value)}
-                          className={`relative flex items-center gap-4 p-3 rounded-xl border text-left transition-all duration-200
-                            ${selected
-                              ? 'border-indigo-600 ring-1 ring-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/20'
-                              : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-300 dark:hover:border-indigo-700'
-                            }`}
-                        >
-                          <div className={`p-2 rounded-lg ${selected ? 'bg-white dark:bg-indigo-900/40 text-indigo-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
-                            {option.icon}
-                          </div>
-                          
-                          <div className="min-w-0 flex-1">
-                            <div className={`text-sm font-semibold ${selected ? 'text-indigo-900 dark:text-indigo-100' : 'text-slate-700 dark:text-slate-300'}`}>
-                              {option.label}
-                            </div>
-                            <div className="text-[10px] text-slate-500 dark:text-slate-500">
-                              {option.desc}
-                            </div>
-                          </div>
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Content Width</div>
 
-                          {selected && (
-                            <div className="text-indigo-600 dark:text-indigo-400">
-                              <Icons.ShieldCheck size={18} />
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
+                <div className="grid grid-cols-1 gap-2">
+                  {WIDTH_OPTIONS.map((option) => {
+                    const selected = (appSettings.maxWidth || 'max-w-7xl') === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        onClick={() => updateSetting('maxWidth', option.value)}
+                        className={`relative flex items-center gap-4 p-3 rounded-xl border text-left transition-all duration-200
+                          ${selected
+                            ? 'border-indigo-600 ring-1 ring-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/20'
+                            : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-300 dark:hover:border-indigo-700'
+                          }`}
+                      >
+                        <div className={`p-2 rounded-lg ${selected ? 'bg-white dark:bg-indigo-900/40 text-indigo-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                          {option.icon}
+                        </div>
 
-                  <div className="p-3 mt-2 rounded-lg bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800">
-                     <div className="flex gap-2 items-center text-xs text-slate-600 dark:text-slate-400">
-                       <Icons.Monitor size={14} />
-                       <span>Adjusts the maximum width of the application container.</span>
-                     </div>
+                        <div className="min-w-0 flex-1">
+                          <div className={`text-sm font-semibold ${selected ? 'text-indigo-900 dark:text-indigo-100' : 'text-slate-700 dark:text-slate-300'}`}>
+                            {option.label}
+                          </div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-500">
+                            {option.desc}
+                          </div>
+                        </div>
+
+                        {selected && (
+                          <div className="text-indigo-600 dark:text-indigo-400">
+                            <Icons.ShieldCheck size={18} />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="p-3 mt-2 rounded-lg bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800">
+                  <div className="flex gap-2 items-center text-xs text-slate-600 dark:text-slate-400">
+                    <Icons.Monitor size={14} />
+                    <span>Adjusts the maximum width of the application container.</span>
                   </div>
-               </div>
-             </div>
+                </div>
+              </div>
+            </div>
           </AccordionItem>
 
           {/* Section 3: Accessibility */}
-          <AccordionItem 
-            id="accessibility" 
-            title="Accessibility" 
+          <AccordionItem
+            id="accessibility"
+            title="Accessibility"
             icon={<Icons.Accessibility size={18} />}
             activeId={activeSection}
             onClick={handleSectionClick}
           >
-             <div className="space-y-2">
-                {[
-                  { id: 'colorblindMode', title: 'Colorblind safety', icon: <Icons.Eye size={16} />, desc: 'Higher contrast in charts.' },
-                  { id: 'useAccessibleFont', title: 'High-legibility font', icon: <span className="text-xs font-bold">Lex</span>, desc: 'Use Lexend for readability.' },
-                  { id: 'quickLoad', title: 'Quick load', icon: <Icons.Rocket size={16} />, desc: 'Skip boot animations.' },
-                  { id: 'reduceMotion', title: 'Reduce motion', icon: <Icons.Zap size={16} />, desc: 'Minimize transitions.' },
-                ].map((item) => (
-                  <ToggleRow
-                    key={item.id}
-                    id={item.id}
-                    title={item.title}
-                    desc={item.desc}
-                    icon={item.icon}
-                    checked={appSettings[item.id]}
-                    onChange={(k, v) => updateSetting(k, v)}
-                  />
-                ))}
-              </div>
+            <div className="space-y-2">
+              {[
+                { id: 'colorblindMode', title: 'Colorblind safety', icon: <Icons.Eye size={16} />, desc: 'Higher contrast in charts.' },
+                { id: 'useAccessibleFont', title: 'High-legibility font', icon: <span className="text-xs font-bold">Lex</span>, desc: 'Use Lexend for readability.' },
+                { id: 'quickLoad', title: 'Quick load', icon: <Icons.Rocket size={16} />, desc: 'Skip boot animations.' },
+                { id: 'reduceMotion', title: 'Reduce motion', icon: <Icons.Zap size={16} />, desc: 'Minimize transitions.' },
+              ].map((item) => (
+                <ToggleRow
+                  key={item.id}
+                  id={item.id}
+                  title={item.title}
+                  desc={item.desc}
+                  icon={item.icon}
+                  checked={appSettings[item.id]}
+                  onChange={(k, v) => updateSetting(k, v)}
+                />
+              ))}
+            </div>
           </AccordionItem>
 
           {/* Section 4: Data Management */}
-          <AccordionItem 
-            id="data" 
-            title="Data Management" 
+          <AccordionItem
+            id="data"
+            title="Data Management"
             icon={<Icons.Database size={18} />}
             activeId={activeSection}
             onClick={handleSectionClick}
@@ -400,7 +402,7 @@ const SettingsModal = ({ isVisible, onClose, onPromptPurge, onSystemWipe, appSet
               {/* Wipe Block (Danger Zone) */}
               <div className="rounded-xl border border-rose-200 dark:border-rose-900/30 bg-rose-50/50 dark:bg-rose-950/10 p-4">
                 <div className="flex items-start gap-3">
-                   <div className="p-2 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 shadow-sm">
+                  <div className="p-2 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 shadow-sm">
                     <Icons.AlertTriangle size={18} />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -408,7 +410,7 @@ const SettingsModal = ({ isVisible, onClose, onPromptPurge, onSystemWipe, appSet
                       System Wipe
                     </div>
                     <div className="text-xs text-rose-600/80 dark:text-rose-400/70 mt-1 mb-3">
-                      Factory reset. Deletes ALL settings, data, and users locally. 
+                      Factory reset. Deletes ALL settings, data, and users locally.
                     </div>
                     <button
                       onClick={onSystemWipe}
@@ -424,7 +426,7 @@ const SettingsModal = ({ isVisible, onClose, onPromptPurge, onSystemWipe, appSet
           </AccordionItem>
         </div>
 
-        {/* Footer - Save button removed as requested */}
+        {/* Footer */}
         <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 flex items-center justify-end z-10">
           <button
             onClick={onClose}

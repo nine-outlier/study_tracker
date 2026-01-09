@@ -123,7 +123,12 @@ const RollingScore = ({ value }) => {
 
 // --- MAIN COMPONENT ---
 const ArcadeGameRoot = ({ onExit }) => {
-  const engine = useArcadeGameEngine();
+  // Move isPaused state to the top so it can be passed to the engine
+  const [isPaused, setIsPaused] = useState(false);
+  const [showLegend, setShowLegend] = useState(false);
+  
+  // Pass isPaused to the engine to stop passive points
+  const engine = useArcadeGameEngine(isPaused);
   
   const { 
       gameState = GAME_STATES.IDLE, 
@@ -137,8 +142,6 @@ const ArcadeGameRoot = ({ onExit }) => {
       passiveRate = 0, 
   } = engine || {};
 
-  const [isPaused, setIsPaused] = useState(false);
-  const [showLegend, setShowLegend] = useState(false);
   const [hasShownGodBanner, setHasShownGodBanner] = useState(false);
   const [highScore, setHighScore] = useState(0);
   
@@ -148,6 +151,12 @@ const ArcadeGameRoot = ({ onExit }) => {
 
   // --- 3. THE SPLITTER LOGIC ---
   useEffect(() => {
+    // Prevent passive points accumulation or visuals when paused
+    if (isPaused) {
+        prevScoreRef.current = score; // Sync ref so diff doesn't accumulate
+        return;
+    }
+
     const diff = score - prevScoreRef.current;
     prevScoreRef.current = score;
 
@@ -184,7 +193,7 @@ const ArcadeGameRoot = ({ onExit }) => {
             }, delay + 1500);
         }
     }
-  }, [score, round, passiveRate]); 
+  }, [score, round, passiveRate, isPaused]); 
 
 
   useEffect(() => {

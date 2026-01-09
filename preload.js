@@ -10,3 +10,9 @@ contextBridge.exposeInMainWorld('updater', {
   onDownloaded: (cb) => ipcRenderer.on('update:downloaded', (_e, info) => cb(info)),
   onError: (cb) => ipcRenderer.on('update:error', (_e, msg) => cb(msg)),
 });
+
+contextBridge.exposeInMainWorld('storage', {
+  loadData: () => ipcRenderer.invoke('load-data'),
+  saveData: (data, settings) => ipcRenderer.invoke('save-data', data, settings),
+  systemWipe: () => ipcRenderer.invoke('system-wipe'),
+});

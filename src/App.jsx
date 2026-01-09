@@ -284,6 +284,71 @@ const useCertificationMetrics = (certData, trendFilter, weights, appSettings) =>
   }, [certData, trendFilter, weights, appSettings]);
 };
 
+const normalizeDomainItem = (d) => {
+  // supports: "Networking"  OR  { name: "Networking" }  OR  { domain: "Networking" } etc.
+  if (typeof d === 'string') return { name: d, isDeleted: false };
+  if (!d || typeof d !== 'object') return null;
+
+  const name = d.name || d.domain || d.title || '';
+  if (!name) return null;
+
+  return {
+    name,
+    isDeleted: Boolean(d.isDeleted ?? d.deleted ?? false),
+  };
+};
+
+const normalizeTestItem = (t) => {
+  if (!t || typeof t !== 'object') return null;
+  return {
+    ...t,
+    isDeleted: Boolean(t.isDeleted ?? t.deleted ?? false),
+  };
+};
+
+const normalizeCert = (cert) => {
+  if (!cert || typeof cert !== 'object') return cert;
+
+  const next = { ...cert };
+
+  next.tests = Array.isArray(next.tests) ? next.tests.map(normalizeTestItem).filter(Boolean) : [];
+  next.domains = Array.isArray(next.domains) ? next.domains.map(normalizeDomainItem).filter(Boolean) : [];
+
+  if (!Array.isArray(next.studySessions)) next.studySessions = [];
+  if (!Array.isArray(next.journalEntries)) next.journalEntries = [];
+
+  // Backfill domains from tests (THIS is what makes old data visible)
+  const fromTests = new Set();
+  next.tests.forEach((test) => {
+    if (test?.isDeleted) return;
+    const keys = Object.keys(test?.domains || {});
+    keys.forEach((k) => {
+      if (k === config.ALL_DOMAINS_KEY) return;
+      if (k === config.UNCATEGORIZED_KEY) return;
+      fromTests.add(k);
+    });
+  });
+
+  const have = new Set(next.domains.map((d) => d.name).filter(Boolean));
+  fromTests.forEach((name) => {
+    if (!have.has(name)) next.domains.push({ name, isDeleted: false });
+  });
+
+  return next;
+};
+
+const normalizeExamData = (data) => {
+  if (!data || typeof data !== 'object') return data;
+
+  // if your top-level structure is { certKey: certObj, ... }
+  const next = structuredClone(data);
+  Object.keys(next).forEach((certKey) => {
+    next[certKey] = normalizeCert(next[certKey]);
+  });
+
+  return next;
+};
+
 const App = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isExitingLoad, setIsExitingLoad] = useState(false);
@@ -467,6 +532,32 @@ const promptDeleteDomain = (domainName) => {
   });
 };
 
+const promptDeleteCert = (certKey) => {
+  const certName =
+    examData?.[certKey]?.fullName ||
+    examData?.[certKey]?.shortName ||
+    certKey;
+
+  confirmDanger({
+    title: `Delete Certification "${certName}"?`,
+    message:
+      'This will permanently delete this certification and all its tests/domains/journal entries on this device.\n\nThis cannot be undone.',
+    confirmText: 'Delete Certification',
+    onConfirm: async () => {
+      // Close modals that depend on active cert (optional but avoids weird UI)
+      setShowDataEntryModal(false);
+
+      setExamData((prev) => {
+        const next = structuredClone(prev || {});
+        delete next[certKey];
+        return next;
+      });
+
+      showToast('Certification deleted.');
+    },
+  });
+};
+
 // Optional (ONLY if you still keep studySessions + ReviewDataForm shows them)
 const promptDeleteStudySession = (sessionId) => {
   confirmDanger({
@@ -552,6 +643,18 @@ useEffect(() => {
     } catch (e) {}
     return DEFAULT_SETTINGS;
   });
+
+  // Keep activeCert valid if a cert gets deleted
+useEffect(() => {
+  const keys = Object.keys(examData || {});
+  if (!keys.length) {
+    if (activeCert !== null) setActiveCert(null);
+    return;
+  }
+  if (!activeCert || !keys.includes(activeCert)) {
+    setActiveCert(keys[0]);
+  }
+}, [examData, activeCert]);
 
   // 2. Helper Setters
   const setTrendFilter = (updater) => {
@@ -719,18 +822,26 @@ useEffect(() => {
       if (result && result.error) {
         showToast("Error loading data. Starting fresh.", true);
       } else {
-        let loadedData = (result && result.data) || allExamData;
-        let loadedSettings = (result && result.settings) || DEFAULT_SETTINGS;
+let loadedData = (result && result.data) || allExamData;
+let loadedSettings = (result && result.settings) || DEFAULT_SETTINGS;
 
-        loadedSettings = migrateLegacyThemeSettings(loadedSettings);
+loadedSettings = migrateLegacyThemeSettings(loadedSettings);
 
-        setExamData(loadedData);
-        setAppSettings(prev => ({
-          ...loadedSettings,
-          quickLoad: prev.quickLoad
-        }));
-        setActiveCert(Object.keys(loadedData)[0] || null);
-      }
+// ✅ migrate/normalize legacy data so old tests populate domains
+loadedData = normalizeExamData(loadedData);
+
+setExamData(loadedData);
+setAppSettings(prev => ({
+  ...loadedSettings,
+  quickLoad: prev.quickLoad
+}));
+setActiveCert(Object.keys(loadedData)[0] || null);
+
+try {
+  await saveData(loadedData, loadedSettings);
+} catch (e) {
+  // non-fatal
+}}
 
       if (!appSettings.quickLoad) {
         const elapsedTime = Date.now() - startTime;
@@ -1094,14 +1205,15 @@ useEffect(() => {
             </div>
           </div>
 
-          <Navigation
-            examData={examData}
-            activeCert={activeCert}
-            onCertChange={setActiveCert}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            onShowAddCertModal={() => setShowAddCertModal(true)}
-          />
+<Navigation
+  examData={examData}
+  activeCert={activeCert}
+  onCertChange={setActiveCert}
+  activeTab={activeTab}
+  onTabChange={setActiveTab}
+  onShowAddCertModal={() => setShowAddCertModal(true)}
+  onDeleteCert={promptDeleteCert}
+/>
 
           {!hasData ? (
             <div className="app-bg-surface p-10 rounded-xl app-ring-primary ring-1 text-center mt-6">
