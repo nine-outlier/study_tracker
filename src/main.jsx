@@ -2,8 +2,9 @@ import './index.css';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
+import { DataProvider } from './state/DataProvider.jsx'; // <- IMPORTANT! import it here
 
-// ErrorBoundary class definition
+// ErrorBoundary class stays exactly the same
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -53,6 +54,8 @@ const root = createRoot(container);
 
 root.render(
   <ErrorBoundary>
-    <App />
+    <DataProvider>
+      <App />
+    </DataProvider>
   </ErrorBoundary>
 );

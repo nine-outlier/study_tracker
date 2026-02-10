@@ -17,6 +17,9 @@ export const config = {
   UNCATEGORIZED_KEY: "[Uncategorized Data]"
 };
 
+// INITIAL DATA STATE
+// Set to empty {} so no "ghost" certifications appear by default.
+// Users must add them via the Create Tool (Premade tab).
 export const allExamData = {};
 
 export const LOCAL_STORAGE_KEY = 'certTrackerData';
@@ -29,6 +32,8 @@ export const DEFAULT_SETTINGS = {
   colorblindMode: false,
   darkMode: false,
   theme: 'system',
+  quickLoad: false,
+  autoExpand: false,
   
   // Defaults for new features
   useWeightedAverages: false,
@@ -41,6 +46,25 @@ export const DEFAULT_SETTINGS = {
     showHistory: false,
     showPriority: false,
     showStudyLog: false,
+  }
+};
+
+// Centralized definition for Premade Content
+// This ensures App.jsx creates the exact domains that QuizApp uses.
+export const PREMADE_DATA = {
+  network_plus: {
+    id: 'network_plus',
+    name: 'CompTIA Network+',
+    short: 'Network+',
+    domains: [
+      "Networking Fundamentals",
+      "Wireless Networking",
+      "Network Management",
+      "Security Principles",
+      "Threats & Attacks",
+      "Cryptography",
+      "IAM & Admin"
+    ]
   }
 };
 

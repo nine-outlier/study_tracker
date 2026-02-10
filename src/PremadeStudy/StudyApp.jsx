@@ -13,6 +13,8 @@ try {
   console.warn('PDF Worker setup warning:', e);
 }
 
+import SparkMD5 from 'spark-md5'; // lightweight hash library
+
 // =========================
 // PDF CACHE (IndexedDB)
 // =========================
@@ -70,6 +72,21 @@ const idbSet = async (key, value) => {
   });
 };
 
+const idbDelete = async (key) => {
+  const db = await openPdfCacheDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PDF_CACHE_STORE, 'readwrite');
+    const store = tx.objectStore(PDF_CACHE_STORE);
+    const req = store.delete(key);
+
+    req.onsuccess = () => resolve(true);
+    req.onerror = () => reject(req.error);
+
+    tx.oncomplete = () => db.close();
+    tx.onerror = () => db.close();
+  });
+};
+
 // =========================
 // SMALL UTILS
 // =========================
@@ -86,10 +103,11 @@ const normalizePdfUrl = (pdfUrl) => {
 
 const cleanPdfUrl = (url) => String(url || '').split('?')[0].split('#')[0];
 
-const makeCacheKey = ({ schema, title, cleanUrl }) => {
-  // stable key per schema + title + url (safe encoded)
+// Add hash to cache key to prevent collisions on same-name files
+const makeCacheKey = ({ schema, title, cleanUrl, hash }) => {
   const safeTitle = String(title || 'Untitled').replace(/\s/g, '');
-  return `studyapp_pdf_cache_${schema}_${safeTitle}_${encodeURIComponent(cleanUrl)}`;
+  const safeHash = hash || 'nohash';
+  return `studyapp_pdf_cache_${schema}_${safeTitle}_${encodeURIComponent(cleanUrl)}_${safeHash}`;
 };
 
 // =========================
@@ -133,6 +151,9 @@ const PageRenderer = ({ pageNumber, pdfDocument, scale, syncData, searchTerm, on
   };
 
   useEffect(() => {
+    // FIX: Clear content immediately when doc changes to prevent ghosting
+    setRenderedContent(null);
+
     if (!isInView || !pdfDocument || !syncData) return;
 
     let cancelled = false;
@@ -224,8 +245,6 @@ const PageRenderer = ({ pageNumber, pdfDocument, scale, syncData, searchTerm, on
 // =========================
 // MAIN APP
 // =========================
-// Future-ready: you can optionally pass a single `course` object later:
-// <StudyApp course={{ title, domains, glossary, protocols, pdfUrl }} ... />
 const StudyApp = ({
   title: titleProp,
   domains: domainsProp,
@@ -244,7 +263,10 @@ const StudyApp = ({
 
   const correctedPdfUrl = useMemo(() => normalizePdfUrl(pdfUrl), [pdfUrl]);
 
-  const [activeTab, setActiveTab] = useState('domains');
+  const activeTabState = useState('domains');
+  const activeTab = activeTabState[0];
+  const setActiveTab = activeTabState[1];
+
   const [activeDomain, setActiveDomain] = useState(domains?.[0] ?? null);
   const [expandedSections, setExpandedSections] = useState({});
   const [showFullPdf, setShowFullPdf] = useState(false);
@@ -267,9 +289,12 @@ const StudyApp = ({
   const glossaryRefs = useRef({});
   const protocolRefs = useRef({});
 
+  const [pdfHash, setPdfHash] = useState(null);
+
   // prevent duplicate loads / race conditions
-  const pdfLoadingPromiseRef = useRef(null);
   const scanRunIdRef = useRef(0);
+  // Holds the RAW pdf instance so we can destroy it cleanly without waiting for React state updates
+  const pdfInstanceRef = useRef(null);
 
   // keep activeDomain safe if domains changes
   useEffect(() => {
@@ -302,36 +327,15 @@ const StudyApp = ({
     );
   }, []);
 
-  const loadPdfDocument = useCallback(async () => {
-    if (pdfDocument) return pdfDocument;
-    if (!correctedPdfUrl) throw new Error('No PDF URL provided');
-
-    if (pdfLoadingPromiseRef.current) return pdfLoadingPromiseRef.current;
-
-    const loadingTask = pdfjsLib.getDocument(correctedPdfUrl);
-    pdfLoadingPromiseRef.current = loadingTask.promise
-      .then((pdf) => {
-        setPdfDocument(pdf);
-        setNumPages(pdf.numPages);
-        return pdf;
-      })
-      .finally(() => {
-        // allow future reload if needed
-        pdfLoadingPromiseRef.current = null;
-      });
-
-    return pdfLoadingPromiseRef.current;
-  }, [pdfDocument, correctedPdfUrl]);
-
   const startRobot = useCallback(
-    async (forceRescan = false) => {
-      if (!correctedPdfUrl) return;
-      if (status === 'synced' && !forceRescan) return;
-
-      const runId = ++scanRunIdRef.current;
-
+    async (specificHash, forceRescan, preLoadedPdf, runId) => {
+      if (!correctedPdfUrl || !specificHash) return;
+      
+      // Use the passed runId for all validity checks, NOT the ref directly
+      // This prevents the closure from seeing a ref incremented by a re-render
+      
       const cUrl = cleanPdfUrl(correctedPdfUrl);
-      const cacheKey = makeCacheKey({ schema: PDF_CACHE_SCHEMA, title, cleanUrl: cUrl });
+      const cacheKey = makeCacheKey({ schema: PDF_CACHE_SCHEMA, title, cleanUrl: cUrl, hash: specificHash });
 
       try {
         setErrorMessage(null);
@@ -341,7 +345,19 @@ const StudyApp = ({
         // 1) Cache-first (the "never scan again" path)
         if (!forceRescan) {
           try {
+            // ALWAYS validate source before using cache
+            // This prevents "dead cache" if the file has been removed or replaced
+            try {
+              const headRes = await fetch(correctedPdfUrl, { method: 'HEAD', cache: 'no-store' });
+              if (!headRes.ok) throw new Error("PDF source missing");
+            } catch (headErr) {
+              console.warn("PDF source check failed, invalidating cache:", headErr);
+              await idbDelete(cacheKey);
+              throw new Error("PDF source verification failed");
+            }
+
             const cached = await idbGet(cacheKey);
+            // Strict check against passed runId
             if (runId !== scanRunIdRef.current) return;
 
             if (
@@ -356,18 +372,27 @@ const StudyApp = ({
               setPdfTextContent(cached.pdfTextContent);
               setSyncMap(cached.syncMap);
               setNumPages(cached.numPages);
-
               setStatus('synced');
               setProgress(100);
               return;
             }
           } catch (e) {
-            console.warn('PDF cache read failed, falling back to scan:', e);
+            console.warn('PDF cache check/validation failed, falling back to scan:', e);
+            // If the validation explicitly failed (threw Error), we stop here because of the outer catch.
+            // If idbGet failed, we just fall through to scan.
+            if (e.message === "PDF source verification failed") {
+               throw e;
+            }
           }
         }
 
         // 2) No cache => do the full scan ONCE
-        const pdf = await loadPdfDocument();
+        // Use the passed fresh PDF only.
+        const pdf = preLoadedPdf;
+        if (!pdf) {
+          throw new Error("startRobot called without a PDF instance");
+        }
+        
         if (runId !== scanRunIdRef.current) return;
 
         setProgress(5);
@@ -375,14 +400,31 @@ const StudyApp = ({
         // --- Text index (search) ---
         const fullText = [];
         for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
           if (runId !== scanRunIdRef.current) return;
 
-          const content = await page.getTextContent();
-          const str = content.items.map((item) => item.str).join(' ');
-          fullText.push({ page: i, text: str });
+          try {
+            const page = await pdf.getPage(i);
 
-          setProgress(Math.floor((i / pdf.numPages) * 40));
+            // Attempt to get text content, but fail gracefully
+            let str = '';
+            try {
+              const content = await page.getTextContent();
+              str = content.items.map((item) => item.str).join(' ');
+            } catch (pageErr) {
+              console.warn(`Failed to extract text for page ${i}:`, pageErr);
+            }
+
+            fullText.push({ page: i, text: str });
+
+            // Update progress (0–40%)
+            setProgress(Math.floor((i / pdf.numPages) * 40));
+
+            // Yield to main thread to prevent UI freeze
+            await new Promise((r) => setTimeout(r, 5));
+          } catch (err) {
+            console.error(`Error processing page ${i}:`, err);
+            fullText.push({ page: i, text: '' });
+          }
         }
         setPdfTextContent(fullText);
 
@@ -457,35 +499,125 @@ const StudyApp = ({
         setStatus('error');
       }
     },
-    [correctedPdfUrl, title, loadPdfDocument, status]
+    // IMPORTANT: removed 'status' and 'pdfDocument' from deps to prevent scan aborts
+    [correctedPdfUrl, title]
   );
 
+  // ============================================
+  // UNIFIED PDF LIFECYCLE (The One Ring Rule)
+  // ============================================
+  // This effect handles: Destroy -> Fetch -> Hash -> Load -> Scan
+  // It guarantees only ONE PDF chain exists at a time.
   useEffect(() => {
-    startRobot(false);
+    if (!correctedPdfUrl) return;
+
+    let canceled = false;
+    const runId = ++scanRunIdRef.current; // Freeze runId before any async ops or state changes
+
+    const run = async () => {
+        // 1. Destroy old instance IMMEDIATELY
+        if (pdfInstanceRef.current) {
+            try {
+                await pdfInstanceRef.current.destroy();
+            } catch (e) { console.warn('PDF destroy error', e); }
+            pdfInstanceRef.current = null;
+        }
+
+        // 2. Clear all related state
+        setPdfDocument(null);
+        setPdfTextContent([]);
+        setSyncMap({});
+        setNumPages(0);
+        setStatus('indexing'); 
+        setPdfHash(null);
+        setErrorMessage(null);
+
+        try {
+            // 3. Single Fetch (Blob)
+            // We fetch the blob once and use it for both Hash and PDF.js
+            // This prevents "double-fetch" network load and potential timing skew.
+            // FIX: Force cache bypass to ensure we get the latest file content if the URL is reused
+            const response = await fetch(correctedPdfUrl, { cache: 'no-cache' });
+            if (!response.ok) throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+            
+            const blob = await response.blob();
+            const arrayBuffer = await blob.arrayBuffer();
+
+            if (canceled || runId !== scanRunIdRef.current) return;
+
+            // 4. Compute Hash from buffer
+            const newHash = SparkMD5.ArrayBuffer.hash(arrayBuffer);
+            setPdfHash(newHash);
+
+            // 5. Load PDF from the SAME buffer
+            const loadingTask = pdfjsLib.getDocument({
+                data: arrayBuffer,
+                disableStream: true,
+                disableAutoFetch: true,
+            });
+            
+            const pdf = await loadingTask.promise;
+
+            if (canceled || runId !== scanRunIdRef.current) {
+                // If we got superseded while loading, destroy immediately
+                pdf.destroy();
+                return;
+            }
+
+            // Store instance for cleanup but DON'T update React state yet
+            pdfInstanceRef.current = pdf;
+
+            // 6. Start robot (scan/cache check)
+            // We pass 'false' for forceRescan so we use the cache if available.
+            // We pass the explicit 'pdf' instance so startRobot doesn't rely on state.
+            // We pass 'runId' explicitly so the robot isn't confused by ref updates during render.
+            await startRobot(newHash, false, pdf, runId);
+            
+            // 7. FINALLY update the UI with the document
+            // This prevents the React render cycle from interrupting the scan flow above.
+            if (canceled || runId !== scanRunIdRef.current) return;
+            setPdfDocument(pdf);
+            setNumPages(pdf.numPages);
+
+        } catch (err) {
+             if (canceled || runId !== scanRunIdRef.current) return;
+             console.error("PDF Workflow Error:", err);
+             setErrorMessage(err.message || 'Failed to load PDF');
+             setStatus('error');
+        }
+    };
+
+    run();
+
+    return () => {
+      canceled = true;
+      // We don't destroy here synchronously because the async function above 
+      // manages the "destroy-before-load" logic more gracefully for rapid switching.
+      // However, if the component unmounts entirely, we might leak if we don't.
+      // Ideally, the next run cleans up the old ref.
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startRobot]);
+  }, [correctedPdfUrl]);
 
-  // Ensure PDF is loaded when opening Full Book (even on cache hit)
+  // Clean up on total unmount
   useEffect(() => {
-    if (!showFullPdf) return;
-    if (status !== 'synced') return;
-
-    if (!pdfDocument) {
-      loadPdfDocument().catch((e) => console.error('PDF load failed:', e));
-    }
-  }, [showFullPdf, status, pdfDocument, loadPdfDocument]);
+      return () => {
+          if (pdfInstanceRef.current) {
+              pdfInstanceRef.current.destroy().catch(() => {});
+              pdfInstanceRef.current = null;
+          }
+      }
+  }, []);
 
   const jumpToPage = useCallback(
     (num) => {
       const p = Math.max(1, Math.min(num, numPages || 1));
       setCurrentPage(p);
 
-      // Enhanced-only: scroll to rendered page node
       const targetNode = document.getElementById(`page-node-${p}`);
       if (targetNode) {
         targetNode.scrollIntoView({ behavior: 'auto', block: 'start' });
       } else if (scrollContainerRef.current && Object.keys(syncMap).length > 0) {
-        // fallback: approximate offset if node isn't mounted yet
         let offset = 0;
         for (let i = 1; i < p; i++) {
           const h = syncMap[i] ? syncMap[i].height : syncMap[1]?.height || 792;
@@ -529,8 +661,7 @@ const StudyApp = ({
   }, []);
 
   // =========================
-  // SEARCH (Future-ready)
-  // - Adding a new study content type later = add an adapter + include in results UI
+  // SEARCH
   // =========================
   const searchResults = useMemo(() => {
     const term = (searchTerm || '').trim().toLowerCase();
@@ -884,7 +1015,8 @@ const StudyApp = ({
               <div className="flex flex-col items-center w-full pb-32">
                 {Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => (
                   <PageRenderer
-                    key={pageNum}
+                    // FIX: Force re-mount of page renderer when hash/file changes
+                    key={`${pdfHash || 'unknown'}-${pageNum}`}
                     pageNumber={pageNum}
                     pdfDocument={pdfDocument}
                     scale={scale}

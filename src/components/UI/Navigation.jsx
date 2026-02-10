@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { PlusIcon, TrashIcon } from './Icons';
+import { PlusIcon } from './Icons';
 
 /**
  * Navigation: Top-level tabs for certifications and app sections.
+ * Updated: Removed direct delete button (moved to Manager modal).
  */
 const Navigation = ({
   examData = {},
@@ -11,31 +12,26 @@ const Navigation = ({
   activeTab,
   onTabChange,
   onShowAddCertModal,
-  onDeleteCert, // ✅ new
+  // onDeleteCert prop is no longer needed here
 }) => {
   const [showAllTabs, setShowAllTabs] = useState(false);
 
-  // Define all tabs in one place. If you add more later, the "..." logic will work automatically.
   const allTabs = useMemo(() => ([
     'overview',
     'priority',
     'trends',
   ]), []);
 
-  // If you ever add more tabs, they'll fall into "moreTabs" automatically.
   const mainTabs = allTabs.slice(0, 3);
   const moreTabs = allTabs.slice(3);
 
   const handleTabClick = (tab) => {
     if (typeof onTabChange === 'function') onTabChange(tab);
-
-    // Only expand if user picked a tab that lives in the overflow.
     if (moreTabs.includes(tab)) {
       setShowAllTabs(true);
     }
   };
 
-  // Logic for the "Add Certification" button
   const handleAddCertClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -44,17 +40,7 @@ const Navigation = ({
     }
   };
 
-  // ✅ Delete active certification
-  const handleDeleteCertClick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (activeCert && typeof onDeleteCert === 'function') {
-      onDeleteCert(activeCert);
-    }
-  };
-
   const certKeys = Object.keys(examData || {});
-  const canDelete = certKeys.length > 0 && !!activeCert;
 
   return (
     <div className="mb-6 space-y-4">
@@ -93,27 +79,13 @@ const Navigation = ({
         <button
           onClick={handleAddCertClick}
           className="flex-shrink-0 w-9 h-9 rounded-lg border border-dashed app-border-muted flex items-center justify-center app-text-muted hover:app-text-primary hover:app-border-primary transition-colors"
-          title="Add Certification"
+          title="Manage Certifications"
         >
           <PlusIcon className="w-5 h-5" />
         </button>
-
-        {/* ✅ Delete Active Certification */}
-        <button
-          onClick={handleDeleteCertClick}
-          disabled={!canDelete}
-          className={`flex-shrink-0 w-9 h-9 rounded-lg border border-dashed app-border-muted flex items-center justify-center transition-colors
-            ${canDelete
-              ? 'text-red-600 hover:opacity-80'
-              : 'text-slate-400 opacity-50 cursor-not-allowed'
-            }`}
-          title="Delete Active Certification"
-        >
-          <TrashIcon className="w-5 h-5" />
-        </button>
       </div>
 
-      {/* 2. Section Tabs (Thin Line Style - Removed Thick Bar) */}
+      {/* 2. Section Tabs (Thin Line Style) */}
       <div className="flex border-b app-border-muted space-x-6 overflow-x-auto custom-scrollbar">
         {mainTabs.map((tab) => (
           <button

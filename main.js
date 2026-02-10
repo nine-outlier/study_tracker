@@ -9,6 +9,7 @@ let mainWindow;
 // ---------------------------
 // Window
 // ---------------------------
+
 function createWindow() {
   // Remove the default Electron application menu (File/Edit/View/etc.)
   Menu.setApplicationMenu(null);
@@ -29,6 +30,9 @@ function createWindow() {
 
   // Extra safety: force-hide menu bar
   mainWindow.setMenuBarVisibility(false);
+
+  // ALWAYS OPEN DEVTOOLS
+  // mainWindow.webContents.openDevTools();
 
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
 

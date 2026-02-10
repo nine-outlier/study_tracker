@@ -1,8 +1,7 @@
-// src/utils/themeHelpers.js
 import React, { useMemo } from 'react';
 
 /* =========================================================
-   PALETTE DEFINITIONS (30 items each)
+   PALETTE DEFINITIONS (39 items each)
    Index mapping MUST match themeManager expectations:
    0  --app-primary
    1  --app-primary-hover
@@ -34,7 +33,48 @@ import React, { useMemo } from 'react';
    27 --app-pure-white (legacy: theme base)
    28 --app-pure-black (legacy: theme contrast)
    29 --app-special-gradient
+
+   -- SMART LEARNING MODE COLORS --
+   30 --theme-50   (Text Lightest)
+   31 --theme-100  (Text Lighter)
+   32 --theme-200  (Text Light)
+   33 --theme-300  (Icons)
+   34 --theme-400  (Borders/Glows)
+   35 --theme-500  (Base Color)
+   36 --theme-600  (Buttons)
+   37 --theme-900  (Background Tints)
+   38 --theme-glow (RGB value for shadows e.g. "59, 130, 246")
    ========================================================= */
+
+// --- SMART LEARNING PALETTES ---
+
+// Standard Blue Glassmorphism (Tailwind Blue)
+const BLUE_SMART = [
+  '#eff6ff', // 50
+  '#dbeafe', // 100
+  '#bfdbfe', // 200
+  '#93c5fd', // 300
+  '#60a5fa', // 400
+  '#3b82f6', // 500
+  '#2563eb', // 600
+  '#1e3a8a', // 900
+  '59, 130, 246' // glow (rgb)
+];
+
+// Red Glassmorphism (Tailwind Rose/Red)
+const RED_SMART = [
+  '#fff1f2', // 50
+  '#ffe4e6', // 100
+  '#fecdd3', // 200
+  '#fda4af', // 300
+  '#fb7185', // 400
+  '#e11d48', // 500 (Rose 600)
+  '#be123c', // 600
+  '#881337', // 900
+  '225, 29, 72' // glow (rgb)
+];
+
+// --- THEME DEFINITIONS ---
 
 const LIGHT_NORMAL = [
   '#0284c7', '#0369a1', '#e0f2fe', '#38bdf8',
@@ -45,19 +85,21 @@ const LIGHT_NORMAL = [
   '#ef4444', '#fee2e2', '#991b1b',
   '#ef4444', '#f97316', '#eab308', '#3b82f6', '#22c55e',
   '#ffffff', '#000000',
-  'linear-gradient(to right, #38bdf8, #a855f7, #ec4899)'
+  'linear-gradient(to right, #38bdf8, #a855f7, #ec4899)',
+  ...BLUE_SMART
 ];
 
 const LIGHT_CB = [
-  '#0072B2', '#005588', '#EEF7FA', '#0072B2',
-  '#ffffff', '#f0f0f0', '#e0e0e0', '#000000', '#444444',
-  '#000000', '#444444', '#555555', '#ffffff',
-  '#009E73', '#E0F2F1', '#00664B',
-  '#E69F00', '#FBE9E7', '#996900',
-  '#D55E00', '#FBE9E7', '#8c230d',
-  '#D55E00', '#E69F00', '#009E73', '#008892', '#0072B2',
+  '#0072B2', '#005588', '#D4E9F7', '#56A3D1',
+  '#ffffff', '#f0f0f0', '#e0e0e0', '#999999', '#666666',
+  '#000000', '#444444', '#666666', '#ffffff',
+  '#009E73', '#D4F1E8', '#00664B',
+  '#F0AB00', '#FFF4D4', '#CC8800',
+  '#CC3311', '#FFE5E0', '#992211',
+  '#CC3311', '#F0AB00', '#009E73', '#0072B2', '#44AA99',
   '#ffffff', '#000000',
-  'linear-gradient(to right, #33BBEE, #0077BB, #009988)'
+  'linear-gradient(to right, #56A3D1, #0072B2, #009E73)',
+  ...BLUE_SMART
 ];
 
 const MIDNIGHT_NORMAL = [
@@ -69,23 +111,25 @@ const MIDNIGHT_NORMAL = [
   '#ef4444', '#7f1d1d', '#fca5a5',
   '#ef4444', '#f97316', '#eab308', '#3b82f6', '#22c55e',
   '#000000', '#ffffff',
-  'linear-gradient(to right, #38bdf8, #a855f7, #ec4899)'
+  'linear-gradient(to right, #38bdf8, #a855f7, #ec4899)',
+  ...BLUE_SMART
 ];
 
 const MIDNIGHT_CB = [
-  '#33BBEE', '#0077BB', '#002233', '#33BBEE',
-  '#09090b', '#18181b', '#27272a', '#ffffff', '#52525b',
+  '#33BBEE', '#0099CC', '#004466', '#56CCF2',
+  '#09090b', '#18181b', '#27272a', '#555555', '#777777',
   '#ffffff', '#dddddd', '#bbbbbb', '#000000',
-  '#009E73', '#003322', '#66CCBB',
-  '#E69F00', '#441100', '#FFB000',
-  '#EE3377', '#440011', '#FF6699',
-  '#EE3377', '#E69F00', '#009E73', '#19ACB0', '#33BBEE',
+  '#44CC99', '#003322', '#77DDBB',
+  '#FFBB44', '#553300', '#FFCC66',
+  '#EE6677', '#440011', '#FF8899',
+  '#EE6677', '#FFBB44', '#44CC99', '#33BBEE', '#8899DD',
   '#000000', '#ffffff',
-  'linear-gradient(to right, #33BBEE, #EE3377)'
+  'linear-gradient(to right, #33BBEE, #44CC99)',
+  ...BLUE_SMART
 ];
 
 const RED_NORMAL = [
-  '#e11d48', '#b91c1c', '#fff1f2', '#f43f5e',
+  'rgb(225, 29, 72)', '#b91c1c', '#fff1f2', '#f43f5e',
   '#fff1f2', '#ffffff', '#fff1f2', '#f43f5e', '#e11d48',
   '#be123c', '#e11d48', '#f43f5e', '#ffffff',
   '#f43f5e', '#fff1f2', '#be123c',
@@ -93,19 +137,21 @@ const RED_NORMAL = [
   '#b91c1c', '#fff1f2', '#be123c',
   '#b91c1c', '#f97316', '#eab308', '#3b82f6', '#22c55e',
   '#ffffff', '#000000',
-  'linear-gradient(135deg, #f43f5e, #e11d48, #dc2626, #b91c1c, #be123c)'
+  'linear-gradient(135deg, #f43f5e, #e11d48, #dc2626, #b91c1c, #be123c)',
+  ...RED_SMART
 ];
 
 const RED_CB = [
-  '#e11d48', '#000000', '#ffffff', '#e11d48',
-  '#ffffff', '#ffffff', '#ffffff', '#000000', '#000000',
-  '#e11d48', '#e11d48', '#000000', '#ffffff',
-  '#e11d48', '#ffffff', '#e11d48',
-  '#e11d48', '#ffffff', '#e11d48',
-  '#e11d48', '#ffffff', '#e11d48',
-  '#e11d48', '#E69F00', '#009E73', '#33BBEE', '#66CCBB',
+  '#e11d48', '#b91c1c', '#fff1f2', '#f43f5e',
+  '#fff1f2', '#ffffff', '#fff1f2', '#d4d4d4', '#999999',
+  '#1a1a1a', '#4d4d4d', '#737373', '#ffffff',
+  '#44AA99', '#E8F5F2', '#2d7a6a',
+  '#F0AB00', '#FFF4D4', '#CC8800',
+  '#CC3311', '#FFE5E0', '#992211',
+  '#CC3311', '#F0AB00', '#44AA99', '#56A3D1', '#77BB88',
   '#ffffff', '#000000',
-  'linear-gradient(135deg, #f43f5e, #e11d48, #dc2626, #b91c1c, #be123c)'
+  'linear-gradient(135deg, #f43f5e, #e11d48, #dc2626, #b91c1c, #be123c)',
+  ...RED_SMART
 ];
 
 const DARK_NORMAL = [
@@ -117,19 +163,21 @@ const DARK_NORMAL = [
   '#f87171', '#6d1f1f', '#f87171',
   '#ef4444', '#f97316', '#eab308', '#3b82f6', '#22c55e',
   '#000000', '#ffffff',
-  'linear-gradient(to right, #3b82f6, #8b5cf6, #ec4899)'
+  'linear-gradient(to right, #3b82f6, #8b5cf6, #ec4899)',
+  ...BLUE_SMART
 ];
 
 const DARK_CB = [
-  '#33BBEE', '#0077BB', '#002233', '#33BBEE',
-  '#000000', '#111111', '#222222', '#ffffff', '#dddddd',
+  '#33BBEE', '#0099CC', '#004466', '#56CCF2',
+  '#000000', '#111111', '#222222', '#555555', '#888888',
   '#ffffff', '#dddddd', '#bbbbbb', '#000000',
-  '#009E73', '#003322', '#66CCBB',
-  '#E69F00', '#441100', '#FFB000',
-  '#EE3377', '#440011', '#FF6699',
-  '#EE3377', '#E69F00', '#009E73', '#19ACB0', '#33BBEE',
+  '#44CC99', '#003322', '#77DDBB',
+  '#FFBB44', '#553300', '#FFCC66',
+  '#EE6677', '#440011', '#FF8899',
+  '#EE6677', '#FFBB44', '#44CC99', '#33BBEE', '#8899DD',
   '#000000', '#ffffff',
-  'linear-gradient(to right, #33BBEE, #EE3377)'
+  'linear-gradient(to right, #33BBEE, #44CC99)',
+  ...BLUE_SMART
 ];
 
 const PAPER_NORMAL = [
@@ -141,19 +189,21 @@ const PAPER_NORMAL = [
   '#b91c1c', '#fee2e2', '#7f1d1d',
   '#ef4444', '#f97316', '#eab308', '#3b82f6', '#22c55e',
   '#ffffff', '#000000',
-  'linear-gradient(to right, #4338ca, #6366f1, #a5b4fc)'
+  'linear-gradient(to right, #4338ca, #6366f1, #a5b4fc)',
+  ...BLUE_SMART
 ];
 
 const PAPER_CB = [
-  '#0072B2', '#005588', '#e0e7ff', '#6366f1',
-  '#fdfbf7', '#f4f1ea', '#e7e5e4', '#d6d3d1', '#a8a29e',
+  '#0072B2', '#005588', '#D4E9F7', '#56A3D1',
+  '#fdfbf7', '#f4f1ea', '#e7e5e4', '#c0bdb8', '#918c87',
   '#1c1917', '#57534e', '#78716c', '#ffffff',
-  '#009E73', '#E0F2F1', '#00664B',
-  '#D55E00', '#FBE9E7', '#996900',
-  '#D55E00', '#FBE9E7', '#8c230d',
-  '#D55E00', '#E69F00', '#009E73', '#008892', '#0072B2',
+  '#009E73', '#D4F1E8', '#00664B',
+  '#F0AB00', '#FFF4D4', '#CC8800',
+  '#CC3311', '#FFE5E0', '#992211',
+  '#CC3311', '#F0AB00', '#009E73', '#0072B2', '#44AA99',
   '#ffffff', '#000000',
-  'linear-gradient(to right, #33BBEE, #0077BB, #009988)'
+  'linear-gradient(to right, #56A3D1, #0072B2, #009E73)',
+  ...BLUE_SMART
 ];
 
 /* =========================================================

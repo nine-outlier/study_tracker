@@ -2,12 +2,6 @@ import React, { useEffect, useState } from 'react';
 
 // Inline SVG components
 const Icons = {
-  X: ({ size = 18, className = '' }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
-    </svg>
-  ),
   Palette: ({ size = 18, className = '' }) => (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" />
@@ -80,6 +74,14 @@ const Icons = {
       <line x1="9" y1="3" x2="9" y2="21" />
     </svg>
   ),
+  LayoutGrid: ({ size = 18, className = '' }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect width="7" height="7" x="3" y="3" rx="1" />
+      <rect width="7" height="7" x="14" y="3" rx="1" />
+      <rect width="7" height="7" x="14" y="14" rx="1" />
+      <rect width="7" height="7" x="3" y="14" rx="1" />
+    </svg>
+  ),
   ChevronDown: ({ size = 18, className = '' }) => (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="m6 9 6 6 6-6" />
@@ -108,18 +110,34 @@ const Icons = {
       <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
     </svg>
   ),
+  BookOpen: ({ size = 18, className = '' }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+    </svg>
+  ),
+  // New Ban icon (Circle with slash)
+  Ban: ({ size = 18, className = '' }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="4.93" x2="19.07" y1="4.93" y2="19.07" />
+    </svg>
+  ),
 };
 
-// Only allow Light + Midnight Blue (users cannot see/select others)
+// Expanded Theme Options based on provided palettes
 const THEME_OPTIONS = [
-  { id: 'light', name: 'Standard Light', color: '#f8fafc', desc: 'Crisp & Professional' },
-  { id: 'midnight', name: 'Midnight Blue', color: '#020617', desc: 'Deep Focus Dark' },
+  { id: 'light', name: 'Light', color: '#f8fafc', desc: 'Crisp & Professional', locked: false },
+  { id: 'midnight', name: 'Midnight', color: '#020617', desc: 'Deep Focus Dark', locked: false },
+  { id: 'red', name: 'Red', color: '#fff1f2', desc: 'Warm & Vibrant', locked: true },
+  { id: 'dark', name: 'Dark', color: '#000000', desc: 'High Contrast Dark', locked: true },
+  { id: 'paper', name: 'Paper', color: '#fdfbf7', desc: 'Soft Academic', locked: true },
 ];
 
-const ToggleRow = ({ id, title, desc, icon, checked, onChange }) => (
-  <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-200/60 dark:border-slate-800 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group">
+const ToggleRow = ({ id, title, desc, icon, checked, onChange, disabled }) => (
+  <label className={`flex items-center justify-between gap-4 rounded-xl border border-slate-200/60 dark:border-slate-800 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
     <div className="min-w-0 flex items-start gap-3">
-      <div className="mt-0.5 shrink-0 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+      <div className={`mt-0.5 shrink-0 transition-all duration-300 ${checked ? 'text-indigo-500 scale-110' : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'}`}>
         {icon}
       </div>
       <div className="min-w-0">
@@ -133,7 +151,8 @@ const ToggleRow = ({ id, title, desc, icon, checked, onChange }) => (
         type="checkbox"
         className="sr-only peer"
         checked={!!checked}
-        onChange={(e) => onChange(id, e.target.checked)}
+        onChange={(e) => !disabled && onChange(id, e.target.checked)}
+        disabled={disabled}
       />
       <span className="h-5 w-9 rounded-full bg-slate-200 dark:bg-slate-700 peer-checked:bg-indigo-600 transition-colors" />
       <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-4 shadow-sm" />
@@ -177,11 +196,15 @@ const AccordionItem = ({ id, title, icon, activeId, onClick, children }) => {
   );
 };
 
-const SettingsModal = ({ isVisible, onClose, onPromptPurge, onSystemWipe, appSettings, setAppSettings }) => {
+const SettingsModal = ({ isVisible, onClose, onPromptPurge, onSystemWipe, appSettings, setAppSettings, overviewConfig, setOverviewConfig }) => {
   const [activeSection, setActiveSection] = useState('appearance');
+  const [wipeConfirm, setWipeConfirm] = useState({ show: false, code: '', input: '' });
 
   useEffect(() => {
-    if (!isVisible) return;
+    if (!isVisible) {
+        setWipeConfirm({ show: false, code: '', input: '' });
+        return;
+    }
     const onKeyDown = (e) => {
       if (e.key === 'Escape') onClose?.();
     };
@@ -192,11 +215,38 @@ const SettingsModal = ({ isVisible, onClose, onPromptPurge, onSystemWipe, appSet
   if (!isVisible) return null;
 
   const updateSetting = (key, value) => {
-    setAppSettings((prev) => ({ ...prev, [key]: value }));
+    console.log('⚙️ SettingsModal updating:', key, '=', value);
+    setAppSettings((prev) => {
+      const newSettings = { ...prev, [key]: value };
+      console.log('⚙️ New appSettings:', newSettings);
+      return newSettings;
+    });
+  };
+
+  const updateOverviewConfig = (key, value) => {
+    if (setOverviewConfig) {
+      setOverviewConfig(prev => ({ ...prev, [key]: value }));
+    }
   };
 
   const handleSectionClick = (id) => {
     setActiveSection(activeSection === id ? null : id);
+  };
+
+  const initiateWipe = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 15; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setWipeConfirm({ show: true, code: result, input: '' });
+  };
+
+  const handleWipeConfirm = () => {
+    if (wipeConfirm.input === wipeConfirm.code) {
+        onSystemWipe();
+        setWipeConfirm({ show: false, code: '', input: '' });
+    }
   };
 
   const WIDTH_OPTIONS = [
@@ -213,26 +263,57 @@ const SettingsModal = ({ isVisible, onClose, onPromptPurge, onSystemWipe, appSet
         onClick={onClose}
       />
 
-      {/* Modal Surface */}
-      <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 z-10">
-          <div className="flex items-center gap-2">
-            <span className="text-base font-bold text-slate-900 dark:text-white">Settings</span>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-            aria-label="Close settings"
-          >
-            <Icons.X size={20} />
-          </button>
-        </div>
+      {/* Modal Surface - Modified for transparency */}
+      <div className="relative w-full max-w-lg flex flex-col pointer-events-none">
+        
+        {/* Scrollable Content - Transparent Container */}
+        <div className="pointer-events-auto p-1 space-y-3">
 
-        {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3 bg-slate-50/50 dark:bg-black/20">
+          {/* Section 1: Dashboard Configuration (NEW) */}
+          {overviewConfig && (
+            <AccordionItem
+                id="dashboard"
+                title="Dashboard Overview"
+                icon={<Icons.LayoutGrid size={18} />}
+                activeId={activeSection}
+                onClick={handleSectionClick}
+            >
+                <div className="space-y-2">
+                    <ToggleRow
+                        id="showDomain"
+                        title="Show Domain Performance"
+                        icon={<Icons.Monitor size={16} />}
+                        checked={overviewConfig.showDomain}
+                        onChange={updateOverviewConfig}
+                    />
+                    <ToggleRow
+                        id="showMastery"
+                        title="Show Mastery Distribution"
+                        icon={<Icons.ShieldCheck size={16} />}
+                        checked={overviewConfig.showMastery}
+                        onChange={updateOverviewConfig}
+                    />
+                    <ToggleRow
+                        id="combineCharts"
+                        title="Combine Charts"
+                        desc="Display compact version."
+                        icon={<Icons.Layout size={16} />}
+                        checked={overviewConfig.combineCharts}
+                        onChange={updateOverviewConfig}
+                        disabled={!overviewConfig.showDomain || !overviewConfig.showMastery}
+                    />
+                    <ToggleRow
+                        id="showHistory"
+                        title="Show Performance History"
+                        icon={<Icons.Database size={16} />}
+                        checked={overviewConfig.showHistory}
+                        onChange={updateOverviewConfig}
+                    />
+                </div>
+            </AccordionItem>
+          )}
 
-          {/* Section 1: Appearance */}
+          {/* Section 2: Appearance */}
           <AccordionItem
             id="appearance"
             title="Interface & Theme"
@@ -245,29 +326,39 @@ const SettingsModal = ({ isVisible, onClose, onPromptPurge, onSystemWipe, appSet
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {THEME_OPTIONS.map((theme) => {
                   const selected = appSettings.theme === theme.id;
+                  const locked = theme.locked;
+                  
                   return (
                     <button
                       key={theme.id}
-                      onClick={() => updateSetting('theme', theme.id)}
+                      onClick={() => !locked && updateSetting('theme', theme.id)}
+                      disabled={locked}
                       className={`relative flex items-center gap-3 p-3 rounded-xl border text-left transition-all duration-200
                         ${selected
                           ? 'border-indigo-600 ring-1 ring-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/20'
-                          : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-300 dark:hover:border-indigo-700'
+                          : locked 
+                             ? 'border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 opacity-90 cursor-not-allowed'
+                             : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-300 dark:hover:border-indigo-700'
                         }`}
                     >
                       <span
-                        className="h-8 w-8 rounded-full border border-slate-200 dark:border-slate-700 shadow-sm shrink-0 flex items-center justify-center"
+                        className="h-8 w-8 rounded-full border border-slate-200 dark:border-slate-700 shadow-sm shrink-0 flex items-center justify-center relative overflow-hidden"
                         style={{ backgroundColor: theme.color }}
                       >
-                        {selected && (
+                        {selected && !locked && (
                           <Icons.ShieldCheck
                             size={14}
-                            className={theme.id === 'midnight' ? 'text-white' : 'text-slate-900'}
+                            className={['midnight', 'dark'].includes(theme.id) ? 'text-white' : 'text-slate-900'}
                           />
+                        )}
+                        {locked && (
+                           <div className="absolute inset-0 flex items-center justify-center bg-white/20 dark:bg-black/20 backdrop-blur-[1px]">
+                               <Icons.Ban size={16} className="text-blue-500 drop-shadow-md" />
+                           </div>
                         )}
                       </span>
                       <div className="min-w-0">
-                        <div className={`text-sm font-semibold ${selected ? 'text-indigo-900 dark:text-indigo-100' : 'text-slate-700 dark:text-slate-300'}`}>
+                        <div className={`text-sm font-semibold flex items-center gap-2 ${selected ? 'text-indigo-900 dark:text-indigo-100' : 'text-slate-700 dark:text-slate-300'}`}>
                           {theme.name}
                         </div>
                         <div className="text-[10px] text-slate-500 dark:text-slate-500 truncate">
@@ -281,7 +372,7 @@ const SettingsModal = ({ isVisible, onClose, onPromptPurge, onSystemWipe, appSet
             </div>
           </AccordionItem>
 
-          {/* Section 2: Layout */}
+          {/* Section 3: Layout */}
           <AccordionItem
             id="layout"
             title="Page Layout"
@@ -300,13 +391,13 @@ const SettingsModal = ({ isVisible, onClose, onPromptPurge, onSystemWipe, appSet
                       <button
                         key={option.value}
                         onClick={() => updateSetting('maxWidth', option.value)}
-                        className={`relative flex items-center gap-4 p-3 rounded-xl border text-left transition-all duration-200
+                        className={`relative flex items-center gap-4 p-3 rounded-xl border text-left transition-all duration-200 group
                           ${selected
                             ? 'border-indigo-600 ring-1 ring-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/20'
                             : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-300 dark:hover:border-indigo-700'
                           }`}
                       >
-                        <div className={`p-2 rounded-lg ${selected ? 'bg-white dark:bg-indigo-900/40 text-indigo-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                        <div className={`p-2 rounded-lg transition-transform duration-300 ${selected ? 'bg-white dark:bg-indigo-900/40 text-indigo-600 scale-110' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 group-hover:scale-105'}`}>
                           {option.icon}
                         </div>
 
@@ -320,7 +411,7 @@ const SettingsModal = ({ isVisible, onClose, onPromptPurge, onSystemWipe, appSet
                         </div>
 
                         {selected && (
-                          <div className="text-indigo-600 dark:text-indigo-400">
+                          <div className="text-indigo-600 dark:text-indigo-400 animate-pulse">
                             <Icons.ShieldCheck size={18} />
                           </div>
                         )}
@@ -328,14 +419,28 @@ const SettingsModal = ({ isVisible, onClose, onPromptPurge, onSystemWipe, appSet
                     );
                   })}
                 </div>
-
-                <div className="p-3 mt-2 rounded-lg bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800">
-                  <div className="flex gap-2 items-center text-xs text-slate-600 dark:text-slate-400">
-                    <Icons.Monitor size={14} />
-                    <span>Adjusts the maximum width of the application container.</span>
-                  </div>
-                </div>
+                {/* Removed the description text container as requested */}
               </div>
+            </div>
+          </AccordionItem>
+
+          {/* Section: Quiz Experience (NEW) */}
+          <AccordionItem
+            id="quiz"
+            title="Quiz Experience"
+            icon={<Icons.BookOpen size={18} />}
+            activeId={activeSection}
+            onClick={handleSectionClick}
+          >
+            <div className="space-y-2">
+                <ToggleRow
+                  id="autoExpand"
+                  title="Auto-Expand Explanations"
+                  desc="Show full explanation immediately after answering."
+                  icon={<Icons.Maximize size={16} />}
+                  checked={appSettings.autoExpand}
+                  onChange={(k, v) => updateSetting(k, v)}
+                />
             </div>
           </AccordionItem>
 
@@ -401,40 +506,67 @@ const SettingsModal = ({ isVisible, onClose, onPromptPurge, onSystemWipe, appSet
 
               {/* Wipe Block (Danger Zone) */}
               <div className="rounded-xl border border-rose-200 dark:border-rose-900/30 bg-rose-50/50 dark:bg-rose-950/10 p-4">
-                <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 shadow-sm">
-                    <Icons.AlertTriangle size={18} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-bold text-rose-700 dark:text-rose-400">
-                      System Wipe
+                {!wipeConfirm.show ? (
+                    <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 shadow-sm">
+                        <Icons.AlertTriangle size={18} />
                     </div>
-                    <div className="text-xs text-rose-600/80 dark:text-rose-400/70 mt-1 mb-3">
-                      Factory reset. Deletes ALL settings, data, and users locally.
+                    <div className="min-w-0 flex-1">
+                        <div className="text-sm font-bold text-rose-700 dark:text-rose-400">
+                        System Wipe
+                        </div>
+                        <div className="text-xs text-rose-600/80 dark:text-rose-400/70 mt-1 mb-3">
+                        Factory reset. Deletes ALL settings, data, and users locally.
+                        </div>
+                        <button
+                        onClick={initiateWipe}
+                        className="w-full text-xs font-bold px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2"
+                        >
+                        <Icons.Trash2 size={14} />
+                        Delete Everything
+                        </button>
                     </div>
-                    <button
-                      onClick={onSystemWipe}
-                      className="w-full text-xs font-bold px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Icons.Trash2 size={14} />
-                      Delete Everything
-                    </button>
-                  </div>
-                </div>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        <div className="text-sm font-bold text-rose-700 dark:text-rose-400">
+                             Confirm System Wipe
+                        </div>
+                        <div className="text-xs text-rose-600/80 dark:text-rose-400/70">
+                            Type the code below to confirm deletion.
+                        </div>
+                        <div className="font-mono text-center text-lg font-bold tracking-widest bg-white dark:bg-slate-950 p-2 rounded border border-rose-200 dark:border-rose-900 text-slate-800 dark:text-slate-200 select-all">
+                            {wipeConfirm.code}
+                        </div>
+                        <input
+                            type="text"
+                            value={wipeConfirm.input}
+                            onChange={(e) => setWipeConfirm(prev => ({ ...prev, input: e.target.value.toUpperCase() }))}
+                            placeholder="ENTER CODE"
+                            className="w-full p-2 text-center font-mono text-sm border border-rose-300 dark:border-rose-800 rounded bg-white dark:bg-slate-900 focus:ring-2 focus:ring-rose-500 focus:outline-none uppercase"
+                        />
+                        <div className="flex gap-2">
+                             <button
+                                onClick={() => setWipeConfirm({ show: false, code: '', input: '' })}
+                                className="flex-1 py-2 text-xs font-semibold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded hover:bg-slate-300 dark:hover:bg-slate-700"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleWipeConfirm}
+                                disabled={wipeConfirm.input !== wipeConfirm.code}
+                                className="flex-1 py-2 text-xs font-bold bg-rose-600 text-white rounded hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Confirm Wipe
+                            </button>
+                        </div>
+                    </div>
+                )}
               </div>
             </div>
           </AccordionItem>
         </div>
 
-        {/* Footer */}
-        <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 flex items-center justify-end z-10">
-          <button
-            onClick={onClose}
-            className="rounded-xl px-5 py-2.5 text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-          >
-            Close
-          </button>
-        </div>
       </div>
     </div>
   );

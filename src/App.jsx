@@ -1,19 +1,9 @@
 import React, { useState, useMemo, useEffect, useRef, useLayoutEffect, Suspense, lazy } from 'react';
-import { loadData, saveData } from './utils/fileStorage.js';
+import { saveData } from './utils/fileStorage.js'; 
 import { calculatePercentage, calculateWeightedAverage, calculateRawAverage, calculateTrendSlope } from './utils/helpers.js';
 import { createPortal } from 'react-dom';
 
 import {
-  getTopicColorClasses,
-  getTrendColorClass,
-  getHighContrastColor,
-  getPalette,
-  isThemeDark,
-  resolveSystemTheme,
-  getActiveGradient,
-  VALID_THEMES,
-  normalizeThemeSettings,
-  migrateLegacyThemeSettings,
   getThemeRuntime
 } from './utils/themeHelpers.js';
 
@@ -21,11 +11,10 @@ import {
   ThemeEngine,
   initThemeEngine,
   syncThemeEngine,
-  applyTheme,
-  injectThemeStyles
 } from './utils/themeManager.js';
 
-import { config, allExamData, DEFAULT_SETTINGS } from './config/appConfig.js';
+import { config, allExamData, DEFAULT_SETTINGS, PREMADE_DATA } from './config/appConfig.js';
+import { DataProvider, useData } from './state/DataProvider.jsx'; 
 
 import Navigation from './components/UI/Navigation.jsx';
 import TopicsForReview from './components/UI/TopicsForReview.jsx';
@@ -284,72 +273,14 @@ const useCertificationMetrics = (certData, trendFilter, weights, appSettings) =>
   }, [certData, trendFilter, weights, appSettings]);
 };
 
-const normalizeDomainItem = (d) => {
-  // supports: "Networking"  OR  { name: "Networking" }  OR  { domain: "Networking" } etc.
-  if (typeof d === 'string') return { name: d, isDeleted: false };
-  if (!d || typeof d !== 'object') return null;
+// --- Internal App Content (Used inside Provider) ---
 
-  const name = d.name || d.domain || d.title || '';
-  if (!name) return null;
+const StudyTrackerContent = () => {
+  // 1. Storage Access
+  const { state, dispatch } = useData();
+  const { examData, settings: appSettings, isLoaded } = state;
 
-  return {
-    name,
-    isDeleted: Boolean(d.isDeleted ?? d.deleted ?? false),
-  };
-};
-
-const normalizeTestItem = (t) => {
-  if (!t || typeof t !== 'object') return null;
-  return {
-    ...t,
-    isDeleted: Boolean(t.isDeleted ?? t.deleted ?? false),
-  };
-};
-
-const normalizeCert = (cert) => {
-  if (!cert || typeof cert !== 'object') return cert;
-
-  const next = { ...cert };
-
-  next.tests = Array.isArray(next.tests) ? next.tests.map(normalizeTestItem).filter(Boolean) : [];
-  next.domains = Array.isArray(next.domains) ? next.domains.map(normalizeDomainItem).filter(Boolean) : [];
-
-  if (!Array.isArray(next.studySessions)) next.studySessions = [];
-  if (!Array.isArray(next.journalEntries)) next.journalEntries = [];
-
-  // Backfill domains from tests (THIS is what makes old data visible)
-  const fromTests = new Set();
-  next.tests.forEach((test) => {
-    if (test?.isDeleted) return;
-    const keys = Object.keys(test?.domains || {});
-    keys.forEach((k) => {
-      if (k === config.ALL_DOMAINS_KEY) return;
-      if (k === config.UNCATEGORIZED_KEY) return;
-      fromTests.add(k);
-    });
-  });
-
-  const have = new Set(next.domains.map((d) => d.name).filter(Boolean));
-  fromTests.forEach((name) => {
-    if (!have.has(name)) next.domains.push({ name, isDeleted: false });
-  });
-
-  return next;
-};
-
-const normalizeExamData = (data) => {
-  if (!data || typeof data !== 'object') return data;
-
-  // if your top-level structure is { certKey: certObj, ... }
-  const next = structuredClone(data);
-  Object.keys(next).forEach((certKey) => {
-    next[certKey] = normalizeCert(next[certKey]);
-  });
-
-  return next;
-};
-
-const App = () => {
+  // 2. Local UI State
   const [isLoading, setIsLoading] = useState(true);
   const [isExitingLoad, setIsExitingLoad] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Initializing Application...');
@@ -358,10 +289,10 @@ const App = () => {
   const [transitionOpacity, setTransitionOpacity] = useState(0);
 
   const [activeTab, setActiveTab] = useState('overview');
-  const [examData, setExamData] = useState(allExamData);
+  // Initialize activeCert based on loaded data
   const [activeCert, setActiveCert] = useState(() => Object.keys(allExamData)[0] || null);
 
-  // --- Inline Confirm Overlay (no separate file) ---
+  // --- Inline Confirm Overlay ---
   const [confirmUI, setConfirmUI] = useState(null);
   const [showAddCertModal, setShowAddCertModal] = useState(false);
   const [showDataEntryModal, setShowDataEntryModal] = useState(false);
@@ -390,96 +321,87 @@ const App = () => {
             {confirmUI.message}
           </div>
 
-<div className="mt-5 flex items-center justify-end gap-2">
-  <button
-    type="button"
-    onClick={closeConfirm}
-    className="rounded-xl px-4 py-2 text-sm font-semibold app-bg-highlight app-text-main hover:opacity-90 transition"
-  >
-    Cancel
-  </button>
+          <div className="mt-5 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={closeConfirm}
+              className="rounded-xl px-4 py-2 text-sm font-semibold app-bg-highlight app-text-main hover:opacity-90 transition"
+            >
+              Cancel
+            </button>
 
-  <button
-    type="button"
-    onClick={async () => {
-      try {
-        await confirmUI.onConfirm?.();
-      } finally {
-        closeConfirm();
-      }
-    }}
-    className="rounded-xl px-4 py-2 text-sm font-bold transition app-bg-highlight app-border border hover:opacity-90"
-    style={{
-      backgroundColor: 'var(--app-bg-highlight)',
-      borderColor: 'var(--app-border)',
-      color: confirmUI.danger ? 'var(--app-danger-text)' : 'var(--app-text-main)',
-    }}
-  >
-    {confirmUI.confirmText}
-  </button>
-</div>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await confirmUI.onConfirm?.();
+                } finally {
+                  closeConfirm();
+                }
+              }}
+              className="rounded-xl px-4 py-2 text-sm font-bold transition app-bg-highlight app-border border hover:opacity-90"
+              style={{
+                backgroundColor: 'var(--app-bg-highlight)',
+                borderColor: 'var(--app-border)',
+                color: confirmUI.danger ? 'var(--app-danger-text)' : 'var(--app-text-main)',
+              }}
+            >
+              {confirmUI.confirmText}
+            </button>
+          </div>
         </div>
       </div>,
       document.body
     );
   };
 
-// --- Soft-delete helpers (used by DataEntryModal "Review" trash buttons) ---
+  // --- Soft-delete helpers ---
 
-const confirmDanger = ({ title, message, confirmText = 'Delete', onConfirm }) => {
-  // Prefer your inline ConfirmOverlay (openConfirm)
-  if (typeof openConfirm === 'function') {
-    openConfirm({
+  const [confirmModal, setConfirmModal] = useState({ isVisible: false, title: '', message: '', onConfirm: () => {} });
+
+  const confirmDanger = ({ title, message, confirmText = 'Delete', onConfirm }) => {
+    if (typeof openConfirm === 'function') {
+      openConfirm({ title, message, confirmText, danger: true, onConfirm });
+      return;
+    }
+    setConfirmModal({
+      isVisible: true,
       title,
       message,
-      confirmText,
-      danger: true,
-      onConfirm,
+      onConfirm: async () => {
+        await onConfirm?.();
+        setConfirmModal({ isVisible: false, title: '', message: '', onConfirm: () => {} });
+      },
     });
-    return;
-  }
+  };
 
-  // Fallback to the existing ConfirmModal state if openConfirm isn't available
-  setConfirmModal({
-    isVisible: true,
-    title,
-    message,
-    onConfirm: async () => {
-      await onConfirm?.();
-      setConfirmModal({ isVisible: false, title: '', message: '', onConfirm: () => {} });
-    },
-  });
-};
+  const showToast = (message, isError = false) => setToast({ show: true, message, isError });
 
-const promptDeleteTest = (testId) => {
-  confirmDanger({
-    title: 'Delete Test Entry?',
-    message: 'This data will stil be available in [Uncategorized Data]. You can purge it from Settings.',
-    confirmText: 'Delete',
-    onConfirm: async () => {
-      setExamData((prev) => {
-        const next = structuredClone(prev);
-        const cert = next?.[activeCert];
-        if (!cert?.tests) return next;
+  // --- Actions mapped to Dispatch ---
 
-        const t = cert.tests.find((x) => x.id === testId);
-        if (t) t.isDeleted = true;
+  const promptDeleteTest = (testId) => {
+    confirmDanger({
+      title: 'Delete Test Entry?',
+      message: 'This data will still be available in [Uncategorized Data]. You can purge it from Settings.',
+      confirmText: 'Delete',
+      onConfirm: async () => {
+        dispatch({
+            type: 'SOFT_DELETE_TEST',
+            payload: { certId: activeCert, testId }
+        });
+        showToast('Test entry deleted.');
+      },
+    });
+  };
 
-        return next;
-      });
-      showToast('Test entry deleted.');
-    },
-  });
-};
-
-const handleReassignData = (testId, targetDomain) => {
-  setExamData((prev) => {
-    const next = structuredClone(prev);
+  const handleReassignData = (testId, targetDomain) => {
+    // Complex logic: Clone, Modify, Dispatch Full Update
+    const next = structuredClone(examData);
     const cert = next?.[activeCert];
-    if (!cert?.tests) return next;
+    if (!cert?.tests) return;
 
     const test = cert.tests.find((t) => t.id === testId);
-    if (!test?.domains?.[config.UNCATEGORIZED_KEY]) return next;
+    if (!test?.domains?.[config.UNCATEGORIZED_KEY]) return;
 
     const dataToMove = test.domains[config.UNCATEGORIZED_KEY];
     delete test.domains[config.UNCATEGORIZED_KEY];
@@ -488,17 +410,15 @@ const handleReassignData = (testId, targetDomain) => {
     test.domains[targetDomain].correct += dataToMove.correct;
     test.domains[targetDomain].total += dataToMove.total;
 
-    return next;
-  });
+    dispatch({ type: 'SET_EXAM_DATA', payload: next });
+    showToast(`Data reassigned to ${targetDomain}!`);
+  };
 
-  showToast(`Data reassigned to ${targetDomain}!`);
-};
-
-const handleDeleteDomain = (domainName) => {
-  setExamData((prev) => {
-    const next = structuredClone(prev);
+  const handleDeleteDomain = (domainName) => {
+    // Complex logic: Clone, Modify, Dispatch Full Update
+    const next = structuredClone(examData);
     const cert = next?.[activeCert];
-    if (!cert) return next;
+    if (!cert) return;
 
     const domain = cert.domains?.find((d) => d.name === domainName);
     if (domain) domain.isDeleted = true;
@@ -516,100 +436,57 @@ const handleDeleteDomain = (domainName) => {
       test.domains[config.UNCATEGORIZED_KEY].total += data.total;
     });
 
-    return next;
-  });
+    dispatch({ type: 'SET_EXAM_DATA', payload: next });
+    showToast('Domain deleted. Data moved to Uncategorized.');
+  };
 
-  showToast('Domain deleted. Data moved to Uncategorized.');
-};
+  const promptDeleteDomain = (domainName) => {
+    confirmDanger({
+      title: `Delete Domain "${domainName}"?`,
+      message: "This will soft-delete the domain. Any data associated with it will be moved to '[Uncategorized Data]'.",
+      confirmText: 'Delete',
+      onConfirm: async () => handleDeleteDomain(domainName),
+    });
+  };
 
-const promptDeleteDomain = (domainName) => {
-  confirmDanger({
-    title: `Delete Domain "${domainName}"?`,
-    message:
-      "This will soft-delete the domain. Any data associated with it will be moved to '[Uncategorized Data]'.",
-    confirmText: 'Delete',
-    onConfirm: async () => handleDeleteDomain(domainName),
-  });
-};
+  const promptDeleteCert = (certKey) => {
+    const certName = examData?.[certKey]?.fullName || examData?.[certKey]?.shortName || certKey;
+    confirmDanger({
+      title: `Delete Certification "${certName}"?`,
+      message: 'This will permanently delete this certification and all its tests/domains/journal entries on this device.\n\nThis cannot be undone.',
+      confirmText: 'Delete Certification',
+      onConfirm: async () => {
+        // If the modal is open, close it (handled by logic if needed, but safe here)
+        dispatch({ type: 'DELETE_CERT', payload: certKey });
+        showToast('Certification deleted.');
+      },
+    });
+  };
 
-const promptDeleteCert = (certKey) => {
-  const certName =
-    examData?.[certKey]?.fullName ||
-    examData?.[certKey]?.shortName ||
-    certKey;
-
-  confirmDanger({
-    title: `Delete Certification "${certName}"?`,
-    message:
-      'This will permanently delete this certification and all its tests/domains/journal entries on this device.\n\nThis cannot be undone.',
-    confirmText: 'Delete Certification',
-    onConfirm: async () => {
-      // Close modals that depend on active cert (optional but avoids weird UI)
-      setShowDataEntryModal(false);
-
-      setExamData((prev) => {
-        const next = structuredClone(prev || {});
-        delete next[certKey];
-        return next;
-      });
-
-      showToast('Certification deleted.');
-    },
-  });
-};
-
-// Optional (ONLY if you still keep studySessions + ReviewDataForm shows them)
-const promptDeleteStudySession = (sessionId) => {
-  confirmDanger({
-    title: 'Delete Session?',
-    message: 'This will soft-delete the session.',
-    confirmText: 'Delete',
-    onConfirm: async () => {
-      setExamData((prev) => {
-        const next = structuredClone(prev);
-        const cert = next?.[activeCert];
-        if (!cert?.studySessions) return next;
-
-        const s = cert.studySessions.find((x) => x.id === sessionId);
-        if (s) s.isDeleted = true;
-
-        return next;
-      });
-      showToast('Session deleted.');
-    },
-  });
-};
-  
   const isWipingRef = useRef(false);
 
-const performSystemWipe = async () => {
-  try {
-    isWipingRef.current = true;
-
-    setShowSettingsModal(false);
-
-    // Clear renderer storage
-    try { localStorage.clear(); } catch (e) {}
-    try { sessionStorage.clear(); } catch (e) {}
-
-    // IMPORTANT: Clear the Electron persisted file (disk) by overwriting it
-    // This is what makes "wipe" actually remove certifications/tests.
+  const performSystemWipe = async () => {
     try {
-      await saveData({}, DEFAULT_SETTINGS);
-    } catch (e) {
-      // even if it fails, we still reload
+      isWipingRef.current = true;
+      setShowSettingsModal(false);
+      try { localStorage.clear(); } catch (e) {}
+      try { sessionStorage.clear(); } catch (e) {}
+      
+      // Force disk wipe before reload
+      try { await saveData({}, DEFAULT_SETTINGS); } catch (e) {}
+
+      dispatch({ type: 'SET_EXAM_DATA', payload: {} });
+      dispatch({ type: 'SET_SETTINGS', payload: DEFAULT_SETTINGS });
+    } finally {
+      window.location.reload();
     }
-  } finally {
-    window.location.reload();
-  }
-};
+  };
 
   const promptSystemWipe = () => {
     setShowSettingsModal(false);
     openConfirm({
       title: 'System Wipe?',
-      message:
-        'Factory reset: this will delete ALL local data and settings for this app on this device.\n\nThis cannot be undone.',
+      message: 'Factory reset: this will delete ALL local data and settings for this app on this device.\n\nThis cannot be undone.',
       confirmText: 'Delete Everything',
       danger: true,
       onConfirm: async () => {
@@ -618,71 +495,272 @@ const performSystemWipe = async () => {
     });
   };
 
-  useEffect(() => {
-  if (isWipingRef.current) return;
-  localStorage.setItem('certTrackerSettings', JSON.stringify(appSettings));
-}, [appSettings]);
+  // --- Handlers for Data Entry ---
 
-useEffect(() => {
-  if (initialLoadRef.current) { initialLoadRef.current = false; return; }
-  if (isLoading) return;
-  if (isWipingRef.current) return;
-
-  saveData(examData, appSettings);
-}, [examData, appSettings, isLoading]);
-
-
-  // 1. Initialize Settings
-  const [appSettings, setAppSettings] = useState(() => {
-    try {
-      const saved = localStorage.getItem('certTrackerSettings');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return normalizeThemeSettings({ ...DEFAULT_SETTINGS, ...parsed }, DEFAULT_SETTINGS);
-      }
-    } catch (e) {}
-    return DEFAULT_SETTINGS;
-  });
-
-  // Keep activeCert valid if a cert gets deleted
-useEffect(() => {
-  const keys = Object.keys(examData || {});
-  if (!keys.length) {
-    if (activeCert !== null) setActiveCert(null);
-    return;
-  }
-  if (!activeCert || !keys.includes(activeCert)) {
-    setActiveCert(keys[0]);
-  }
-}, [examData, activeCert]);
-
-  // 2. Helper Setters
-  const setTrendFilter = (updater) => {
-    setAppSettings(prev => ({ ...prev, trendFilter: typeof updater === 'function' ? updater(prev.trendFilter) : updater }));
-  };
-  const setWeights = (updater) => {
-    setAppSettings(prev => ({ ...prev, weights: typeof updater === 'function' ? updater(prev.weights) : updater }));
-  };
-  const setOverviewConfig = (updater) => {
-    setAppSettings(prev => ({ ...prev, overviewConfig: typeof updater === 'function' ? updater(prev.overviewConfig) : updater }));
-  };
-  const setUseWeightedAverages = (updater) => {
-    setAppSettings(prev => {
-      const current = prev.useWeightedAverages ?? false;
-      const next = typeof updater === 'function' ? updater(current) : updater;
-      return { ...prev, useWeightedAverages: next };
+  const handleAddTest = (newTest) => {
+    dispatch({ 
+        type: 'ADD_TEST_RESULT', 
+        payload: { certId: activeCert, testData: newTest } 
     });
   };
 
-  // 3. Derived Values
+  const handleAddStudySession = (newSession) => {
+    dispatch({ 
+        type: 'ADD_SESSION', 
+        payload: { certId: activeCert, sessionData: newSession } 
+    });
+  };
+
+  const handleAddJournalEntry = (newEntry) => {
+    const next = structuredClone(examData);
+    if (!next[activeCert].journalEntries) next[activeCert].journalEntries = [];
+    next[activeCert].journalEntries.push(newEntry);
+    dispatch({ type: 'SET_EXAM_DATA', payload: next });
+  };
+
+  const handleAddDomain = (newDomainName) => {
+     dispatch({
+         type: 'ADD_DOMAIN',
+         payload: { certId: activeCert, domainName: newDomainName }
+     });
+     showToast("Domain added/updated!");
+  };
+
+  const createCertKeyFromName = (name, existingData) => {
+    const baseKey = name.toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') || 'cert';
+    let key = baseKey;
+    let i = 2;
+    while (existingData[key]) {
+      key = `${baseKey}_${i}`;
+      i += 1;
+    }
+    return key;
+  };
+
+  const handleAddCert = (certName) => {
+    const trimmed = certName.trim();
+    if (!trimmed) { showToast("Please enter a name.", true); return; }
+
+    const newKey = createCertKeyFromName(trimmed, examData);
+    
+    dispatch({
+        type: 'ADD_CERT',
+        payload: { key: newKey, name: trimmed }
+    });
+
+    setActiveCert(newKey);
+    setShowAddCertModal(false);
+    showToast("Certification added!");
+  };
+
+  const handleAddFirstCert = (certName) => {
+    handleAddCert(certName);
+  };
+
+  // --- INTEGRATION: Handle Premade Selection (Network+) ---
+  const handleTogglePremade = (certKey, predefinedDomains = []) => {
+    let domainsToAdd = predefinedDomains;
+    let certName = 'Certification';
+
+    // 1. Resolve Data from Config (Failsafe)
+    if (PREMADE_DATA && PREMADE_DATA[certKey]) {
+        certName = PREMADE_DATA[certKey].name;
+        if (!domainsToAdd || domainsToAdd.length === 0) {
+            domainsToAdd = PREMADE_DATA[certKey].domains || [];
+        }
+    }
+
+    const cert = examData[certKey];
+
+    // Case A: Cert doesn't exist -> Create it (Atomic)
+    if (!cert) {
+       dispatch({
+         type: 'ADD_PREMADE_CERT',
+         payload: { key: certKey, name: certName, domains: domainsToAdd }
+       });
+       setActiveCert(certKey);
+       showToast(`Enabled ${PREMADE_DATA?.[certKey]?.short || certName}`);
+       return;
+    }
+
+    // Case B: Cert exists but is hidden -> Show it
+    if (cert.isHidden) {
+       dispatch({
+         type: 'TOGGLE_CERT_VISIBILITY',
+         payload: { key: certKey, isHidden: false }
+       });
+       setActiveCert(certKey);
+       showToast(`Enabled ${PREMADE_DATA?.[certKey]?.short || certName || cert.fullName}`);
+       return;
+    }
+
+    // Case C: Cert exists and is visible -> Hide it
+    if (!cert.isHidden) {
+       dispatch({
+         type: 'TOGGLE_CERT_VISIBILITY',
+         payload: { key: certKey, isHidden: true }
+       });
+       
+       // If we just hid the active cert, switch to another one
+       if (activeCert === certKey) {
+          const otherKeys = Object.keys(examData).filter(k => k !== certKey && !examData[k].isHidden);
+          setActiveCert(otherKeys.length > 0 ? otherKeys[0] : null);
+       }
+       showToast(`Disabled ${PREMADE_DATA?.[certKey]?.short || certName || cert.fullName}`);
+    }
+  };
+
+  const closeConfirmModal = () => setConfirmModal({ isVisible: false, title: '', message: '', onConfirm: () => {} });
+
+  // --- Settings Setters (Dispatch Wrappers) ---
+  
+  const updateSettings = (updater) => {
+      const nextSettings = typeof updater === 'function' 
+        ? updater(appSettings) 
+        : updater;
+      
+      dispatch({ type: 'SET_SETTINGS', payload: nextSettings });
+  };
+
+  const setTrendFilter = (updater) => {
+    const current = appSettings.trendFilter || DEFAULT_SETTINGS.trendFilter;
+    const next = typeof updater === 'function' ? updater(current) : updater;
+    updateSettings({ ...appSettings, trendFilter: next });
+  };
+
+  const setWeights = (updater) => {
+    const current = appSettings.weights || DEFAULT_SETTINGS.weights;
+    const next = typeof updater === 'function' ? updater(current) : updater;
+    updateSettings({ ...appSettings, weights: next });
+  };
+
+  const setOverviewConfig = (updater) => {
+    const current = appSettings.overviewConfig || DEFAULT_SETTINGS.overviewConfig;
+    const next = typeof updater === 'function' ? updater(current) : updater;
+    updateSettings({ ...appSettings, overviewConfig: next });
+  };
+
+  const setUseWeightedAverages = (updater) => {
+    const current = appSettings.useWeightedAverages ?? false;
+    const next = typeof updater === 'function' ? updater(current) : updater;
+    updateSettings({ ...appSettings, useWeightedAverages: next });
+  };
+
+  // --- Filter Visible Data for UI ---
+  // This ensures deleted/hidden certs don't appear in Navigation or lists
+  const visibleExamData = useMemo(() => {
+    if (!examData) return {};
+    const filtered = {};
+    Object.keys(examData).forEach(key => {
+      if (!examData[key].isHidden) {
+        filtered[key] = examData[key];
+      }
+    });
+    return filtered;
+  }, [examData]);
+
+  // --- Keep Active Cert Valid ---
+  useEffect(() => {
+    const keys = Object.keys(visibleExamData);
+    if (!keys.length) {
+      if (activeCert !== null) setActiveCert(null);
+      return;
+    }
+    // If active cert is no longer in visible list (e.g. was hidden), switch
+    if (!activeCert || !keys.includes(activeCert)) {
+      setActiveCert(keys[0]);
+    }
+  }, [visibleExamData, activeCert]);
+
+
+  // --- Loading Logic (Updated for Provider) ---
+  useEffect(() => {
+    const loadInitialData = async () => {
+      const startTime = Date.now();
+
+      initThemeEngine(appSettings.theme, appSettings.colorblindMode);
+
+      if (!appSettings.quickLoad) {
+        setLoadingMessage('Initializing Theme Engine...');
+        await new Promise(r => setTimeout(r, 800));
+        setLoadingMessage('Loading Core Modules...');
+        await new Promise(r => setTimeout(r, 1500));
+        setLoadingMessage('Verifying Data Integrity...');
+        await new Promise(r => setTimeout(r, 1500));
+        setLoadingMessage('Configuring Visualization Engine...');
+        await new Promise(r => setTimeout(r, 1500));
+        setLoadingMessage('Preparing Workspace...');
+      } else {
+        setLoadingMessage('Quick Loading...');
+      }
+      
+      // Wait for Provider to be ready
+      if (!isLoaded) return; 
+
+      if (!appSettings.quickLoad) {
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = 7000 - elapsedTime;
+        if (remainingTime > 0) {
+          await new Promise(resolve => setTimeout(resolve, remainingTime));
+        }
+      }
+
+      setIsExitingLoad(true);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setIsLoading(false);
+    };
+
+    if (isLoaded) {
+        loadInitialData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded]); // Trigger when provider says data is ready
+
+  useLayoutEffect(() => {
+    syncThemeEngine(appSettings.theme, appSettings.colorblindMode);
+  }, [appSettings.theme, appSettings.colorblindMode]);
+
+
+  // --- TBD Domains Detection ---
+  useEffect(() => {
+    if (!activeCert || isLoading) return;
+    const cert = examData[activeCert];
+    if (!cert || !cert.tests) return;
+
+    const activeDomains = (cert.domains || []).filter(d => !d.isDeleted).map(d => d.name);
+    const tbdDomains = new Set();
+
+    cert.tests.forEach((test) => {
+      if (test.domains && !test.isDeleted) {
+        for (const domainName in test.domains) {
+          if (
+            !activeDomains.includes(domainName) &&
+            domainName !== config.ALL_DOMAINS_KEY &&
+            domainName !== config.UNCATEGORIZED_KEY
+          ) {
+            tbdDomains.add(domainName);
+          }
+        }
+      }
+    });
+
+    const topicsToFix = Array.from(tbdDomains).map(domainName => ({ domainName }));
+    setTbdQueue(topicsToFix);
+  }, [activeCert, examData, isLoading]);
+
+  useEffect(() => {
+    if (!currentTbdTopic && tbdQueue.length > 0) {
+      setCurrentTbdTopic(tbdQueue[0]);
+    }
+  }, [tbdQueue, currentTbdTopic]);
+
+
+  // --- Derived Values & UI Helpers ---
   const trendFilter = appSettings.trendFilter || DEFAULT_SETTINGS.trendFilter;
   const weights = appSettings.weights || DEFAULT_SETTINGS.weights;
   const useWeightedAverages = appSettings.useWeightedAverages ?? false;
 
   const [toast, setToast] = useState({ show: false, message: '', isError: false });
-  const [confirmModal, setConfirmModal] = useState({ isVisible: false, title: '', message: '', onConfirm: () => {} });
-
-  const showToast = (message, isError = false) => setToast({ show: true, message, isError });
 
   const { effectiveDarkMode, activeSettings, rootDarkClass } = useMemo(
     () => getThemeRuntime(appSettings),
@@ -691,16 +769,10 @@ useEffect(() => {
 
   const appClasses = `min-h-screen app-bg-page app-text-main ${appSettings.useAccessibleFont ? 'font-accessible' : ''} ${appSettings.reduceMotion ? 'reduce-motion' : ''}`;
 
-  // persist settings
-  useEffect(() => {
-    localStorage.setItem('certTrackerSettings', JSON.stringify(appSettings));
-  }, [appSettings]);
-
   useEffect(() => {
     if (activeTab === 'study log') setActiveTab('overview');
   }, [activeTab]);
   
-  // lock body scroll when modals open
   useEffect(() => {
     const isModalOpen =
       showSettingsModal || showAddCertModal || showDataEntryModal || confirmModal.isVisible || currentTbdTopic || !!confirmUI;
@@ -710,7 +782,8 @@ useEffect(() => {
     };
   }, [showSettingsModal, showAddCertModal, showDataEntryModal, confirmModal.isVisible, currentTbdTopic, confirmUI]);
 
-  // ranking engine
+
+  // --- Ranking Engine ---
   const rankingEngine = useMemo(() => ({
     determineRank: (score) => {
       if (score >= config.MASTERY_AVG_THRESHOLD) return 'Mastered';
@@ -760,7 +833,7 @@ useEffect(() => {
     }
   }), []);
 
-  // CSS injection
+  // --- CSS Injection ---
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
@@ -796,114 +869,6 @@ useEffect(() => {
     return () => { document.head.removeChild(style); };
   }, []);
 
-  // Load Data
-  useEffect(() => {
-    const loadInitialData = async () => {
-      const startTime = Date.now();
-
-      initThemeEngine(appSettings.theme, appSettings.colorblindMode);
-
-      if (!appSettings.quickLoad) {
-        setLoadingMessage('Initializing Theme Engine...');
-        await new Promise(r => setTimeout(r, 800));
-        setLoadingMessage('Loading Core Modules...');
-        await new Promise(r => setTimeout(r, 1500));
-        setLoadingMessage('Verifying Data Integrity...');
-        await new Promise(r => setTimeout(r, 1500));
-        setLoadingMessage('Configuring Visualization Engine...');
-        await new Promise(r => setTimeout(r, 1500));
-        setLoadingMessage('Preparing Workspace...');
-      } else {
-        setLoadingMessage('Quick Loading...');
-      }
-
-      const result = await loadData();
-
-      if (result && result.error) {
-        showToast("Error loading data. Starting fresh.", true);
-      } else {
-let loadedData = (result && result.data) || allExamData;
-let loadedSettings = (result && result.settings) || DEFAULT_SETTINGS;
-
-loadedSettings = migrateLegacyThemeSettings(loadedSettings);
-
-// ✅ migrate/normalize legacy data so old tests populate domains
-loadedData = normalizeExamData(loadedData);
-
-setExamData(loadedData);
-setAppSettings(prev => ({
-  ...loadedSettings,
-  quickLoad: prev.quickLoad
-}));
-setActiveCert(Object.keys(loadedData)[0] || null);
-
-try {
-  await saveData(loadedData, loadedSettings);
-} catch (e) {
-  // non-fatal
-}}
-
-      if (!appSettings.quickLoad) {
-        const elapsedTime = Date.now() - startTime;
-        const remainingTime = 7000 - elapsedTime;
-        if (remainingTime > 0) {
-          await new Promise(resolve => setTimeout(resolve, remainingTime));
-        }
-      }
-
-      setIsExitingLoad(true);
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setIsLoading(false);
-    };
-
-    loadInitialData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const initialLoadRef = useRef(true);
-  useEffect(() => {
-    if (initialLoadRef.current) { initialLoadRef.current = false; return; }
-    if (isLoading) return;
-    saveData(examData, appSettings);
-  }, [examData, appSettings, isLoading]);
-
-  useLayoutEffect(() => {
-    syncThemeEngine(appSettings.theme, appSettings.colorblindMode);
-  }, [appSettings.theme, appSettings.colorblindMode]);
-
-  // TBD domains detection
-  useEffect(() => {
-    if (!activeCert || isLoading) return;
-    const cert = examData[activeCert];
-    if (!cert || !cert.tests) return;
-
-    const activeDomains = (cert.domains || []).filter(d => !d.isDeleted).map(d => d.name);
-    const tbdDomains = new Set();
-
-    cert.tests.forEach((test) => {
-      if (test.domains && !test.isDeleted) {
-        for (const domainName in test.domains) {
-          if (
-            !activeDomains.includes(domainName) &&
-            domainName !== config.ALL_DOMAINS_KEY &&
-            domainName !== config.UNCATEGORIZED_KEY
-          ) {
-            tbdDomains.add(domainName);
-          }
-        }
-      }
-    });
-
-    const topicsToFix = Array.from(tbdDomains).map(domainName => ({ domainName }));
-    setTbdQueue(topicsToFix);
-  }, [activeCert, examData, isLoading]);
-
-  useEffect(() => {
-    if (!currentTbdTopic && tbdQueue.length > 0) {
-      setCurrentTbdTopic(tbdQueue[0]);
-    }
-  }, [tbdQueue, currentTbdTopic]);
-
   const handleHoldProgress = (progress) => {
     setTransitionOpacity(progress);
   };
@@ -924,91 +889,6 @@ try {
     }, 800);
   };
 
-  const handleAddTest = (newTest) => {
-    setExamData(prev => {
-      const newData = structuredClone(prev);
-      newData[activeCert].tests.push(newTest);
-      return newData;
-    });
-  };
-
-  const handleAddStudySession = (newSession) => {
-    setExamData(prev => {
-      const newData = structuredClone(prev);
-      newData[activeCert].studySessions.push(newSession);
-      return newData;
-    });
-  };
-
-  const handleAddJournalEntry = (newEntry) => {
-    setExamData(prev => {
-      const newData = structuredClone(prev);
-      if (!newData[activeCert].journalEntries) newData[activeCert].journalEntries = [];
-      newData[activeCert].journalEntries.push(newEntry);
-      return newData;
-    });
-  };
-
-  const handleAddDomain = (newDomainName) => {
-    setExamData(prevData => {
-      const newData = structuredClone(prevData);
-      const cert = newData[activeCert];
-      const existingDomain = cert.domains.find(d => d.name === newDomainName);
-
-      if (existingDomain) {
-        if (existingDomain.isDeleted) { existingDomain.isDeleted = false; showToast("Domain re-activated!"); }
-        else { showToast("Domain already exists.", true); }
-      } else {
-        cert.domains.push({ name: newDomainName, isDeleted: false });
-        showToast("Domain added!");
-      }
-      return newData;
-    });
-  };
-
-  const createCertKeyFromName = (name, existingData) => {
-    const baseKey = name.toLowerCase().trim().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') || 'cert';
-    let key = baseKey;
-    let i = 2;
-    while (existingData[key]) {
-      key = `${baseKey}_${i}`;
-      i += 1;
-    }
-    return key;
-  };
-
-  const createCertObject = (name) => ({
-    fullName: name,
-    shortName: name.length > 18 ? name.slice(0, 15) + '…' : name,
-    tests: [],
-    domains: [],
-    studySessions: [],
-    journalEntries: [],
-  });
-
-  const handleAddCert = (certName) => {
-    const trimmed = certName.trim();
-    if (!trimmed) { showToast("Please enter a name.", true); return; }
-
-    const newKey = createCertKeyFromName(trimmed, examData);
-
-    setExamData(prevData => {
-      const newData = structuredClone(prevData || {});
-      newData[newKey] = createCertObject(trimmed);
-      return newData;
-    });
-
-    setActiveCert(newKey);
-    setShowAddCertModal(false);
-    showToast("Certification added!");
-  };
-
-  const handleAddFirstCert = (certName) => {
-    handleAddCert(certName);
-  };
-
-  const closeConfirmModal = () => setConfirmModal({ isVisible: false, title: '', message: '', onConfirm: () => {} });
-
   const metrics = useCertificationMetrics(examData[activeCert], trendFilter, weights, activeSettings);
   const hasData = activeCert && metrics && (
     metrics.practiceTestsCount > 0 ||
@@ -1017,7 +897,7 @@ try {
     (metrics.journalEntries && metrics.journalEntries.length > 0)
   );
 
-  const hasAnyCerts = Object.keys(examData || {}).length > 0;
+  const hasAnyCerts = Object.keys(visibleExamData).length > 0;
 
   const weightedToggleNode = (
     <div className="relative top-0.5">
@@ -1028,11 +908,17 @@ try {
     </div>
   );
 
-  // ✅ REMOVE BAD BLUR: keep dim overlay only (no backdropFilter blur)
   const overlayStyle = {
     opacity: transitionOpacity,
     backgroundColor: `rgba(0,0,0, ${transitionOpacity * 0.2})`,
   };
+
+  // --- Determine if Study button should be active ---
+  const isPremadeCert = examData[activeCert]?.isPremade || !!PREMADE_DATA[activeCert];
+  // Currently, only 'network_plus' has a supported guide/quiz app
+  const isSupportedStudy = activeCert === 'network_plus';
+
+  // --- Render ---
 
   if (isLoading) {
     return (
@@ -1057,13 +943,15 @@ try {
             </div>
           }
         >
-          <NetworkPlusGuide onClose={() => setIsStudyModeActive(false)} />
+          <NetworkPlusGuide 
+            onClose={() => setIsStudyModeActive(false)}
+            appSettings={appSettings}
+          />
         </Suspense>
       </div>
     );
   }
 
-  // ✅ REMOVE BAD BLUR HERE TOO (Arcade mode overlay)
   if (isArcadeMode) {
     return (
       <>
@@ -1095,19 +983,14 @@ try {
 
   return (
     <>
-      {/* Theme Effects - Global Backgrounds */}
       <ThemeEffects theme={appSettings.theme} />
-
-      {/* GLOBAL BACKGROUND LAYER */}
       <ThemeEngine theme={appSettings.theme} colorblindMode={appSettings.colorblindMode} />
 
-      {/* Transition Overlay (no blur now) */}
       <div
         className="fixed inset-0 z-[9999] pointer-events-none transition-all duration-75 ease-out"
         style={overlayStyle}
       />
 
-      {/* MODALS AND OVERLAYS */}
       {toast.show && (
         <ToastNotification
           message={toast.message}
@@ -1140,44 +1023,39 @@ try {
         }}
         onSystemWipe={promptSystemWipe}
         appSettings={appSettings}
-        setAppSettings={setAppSettings}
+        setAppSettings={updateSettings}
       />
 
+      {/* ✅ AddCertModal is now the manager with toggle props AND delete props */}
       <AddCertModal
         isVisible={showAddCertModal}
         onClose={() => setShowAddCertModal(false)}
         onAddCert={handleAddCert}
+        onToggleCert={handleTogglePremade} // Using the consolidated handler
+        onDeleteCert={promptDeleteCert} // ✅ Passing the delete handler!
+        examData={examData} // Pass FULL data to see hidden items
       />
 
-{activeCert && (
-  <DataEntryModal
-    isVisible={showDataEntryModal}
-    activeCert={activeCert}
-    certData={examData[activeCert]}
-    existingDomains={metrics?.existingDomains || []}
-    uncategorizedEntries={metrics?.uncategorizedTestEntries || []}
-    onAddTest={handleAddTest}
+      {activeCert && (
+        <DataEntryModal
+          isVisible={showDataEntryModal}
+          activeCert={activeCert}
+          certData={examData[activeCert]}
+          existingDomains={metrics?.existingDomains || []}
+          uncategorizedEntries={metrics?.uncategorizedTestEntries || []}
+          onAddTest={handleAddTest}
+          onAddDomain={handleAddDomain}
+          onAddJournalEntry={handleAddJournalEntry}
+          onDeleteTest={promptDeleteTest}
+          onDeleteDomain={promptDeleteDomain}
+          onReassignData={handleReassignData}
+          // Passed proper premade flag
+          isPremade={isPremadeCert}
+          onClose={() => setShowDataEntryModal(false)}
+          showToast={showToast}
+        />
+      )}
 
-    // If you removed Study Session from the create tool, remove this prop too
-    // onAddStudySession={handleAddStudySession}
-
-    onAddDomain={handleAddDomain}
-    onAddJournalEntry={handleAddJournalEntry}
-
-    // ✅ wire real handlers
-    onDeleteTest={promptDeleteTest}
-    onDeleteDomain={promptDeleteDomain}
-    onReassignData={handleReassignData}
-
-    // If Study Session is removed, these should be omitted (or left undefined)
-    // onDeleteStudySession={promptDeleteStudySession}
-
-    onClose={() => setShowDataEntryModal(false)}
-    showToast={showToast}
-  />
-)}
-
-      {/* MAIN APP CONTENT */}
       <div className={`${appClasses} p-4 sm:p-8 ${mainContentClass} ${rootDarkClass} relative`}>
         <div className={`${appSettings.maxWidth} mx-auto relative z-10`}>
 
@@ -1190,30 +1068,34 @@ try {
                 </h1>
                 <TrophyIcon level={'RED'} className="w-6 h-6 ml-2 app-gradient-text" />
               </div>
-
-              <p className="text-xs app-text-muted font-mono mt-1">Version 1.1.0</p>
+              <p className="text-xs app-text-muted font-mono mt-1">Version 1.2.0</p>
             </div>
 
-            {/* Study button */}
             <div className="flex flex-col items-end gap-1 self-start">
               <button
-                className="text-sm font-medium transition-colors app-gradient-text hover:opacity-80"
+                className={`text-sm font-medium transition-colors ${
+                  isSupportedStudy 
+                    ? 'app-gradient-text hover:opacity-80' 
+                    : 'text-gray-400 cursor-not-allowed opacity-50'
+                }`}
+                disabled={!isSupportedStudy}
+                title={isSupportedStudy ? "Launch Study Mode" : "Study Mode not available for this certification"}
                 onClick={() => setIsStudyModeActive(true)}
               >
-                <span className="app-gradient-text">Study</span>
+                <span className={isSupportedStudy ? "app-gradient-text" : ""}>Study</span>
               </button>
             </div>
           </div>
 
-<Navigation
-  examData={examData}
-  activeCert={activeCert}
-  onCertChange={setActiveCert}
-  activeTab={activeTab}
-  onTabChange={setActiveTab}
-  onShowAddCertModal={() => setShowAddCertModal(true)}
-  onDeleteCert={promptDeleteCert}
-/>
+          <Navigation
+            examData={visibleExamData} // ✅ Pass ONLY visible certs to Navigation
+            activeCert={activeCert}
+            onCertChange={setActiveCert}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            onShowAddCertModal={() => setShowAddCertModal(true)}
+            onDeleteCert={promptDeleteCert}
+          />
 
           {!hasData ? (
             <div className="app-bg-surface p-10 rounded-xl app-ring-primary ring-1 text-center mt-6">
@@ -1294,5 +1176,11 @@ try {
     </>
   );
 };
+
+const App = () => (
+  <DataProvider>
+    <StudyTrackerContent />
+  </DataProvider>
+);
 
 export default App;

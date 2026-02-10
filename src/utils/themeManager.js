@@ -1,4 +1,3 @@
-// src/utils/themeManager.js
 import React, { useLayoutEffect, useRef } from 'react';
 import {
   VALID_THEMES,
@@ -72,6 +71,7 @@ export const injectThemeStyles = () => {
     .app-text-danger { color: var(--app-danger-text) !important; }
     .app-text-pure-white { color: var(--app-pure-white) !important; }
     .app-text-pure-black { color: var(--app-pure-black) !important; }
+    .app-text-smart-learning { color: var(--app-smart-learning) !important; }
 
     /* BACKGROUND UTILITIES */
     .app-bg-page { background-color: var(--app-bg-page) !important; }
@@ -84,21 +84,26 @@ export const injectThemeStyles = () => {
     .app-bg-success-light { background-color: var(--app-success-light) !important; color: var(--app-success-text) !important; }
     .app-bg-warning-light { background-color: var(--app-warning-light) !important; color: var(--app-warning-text) !important; }
     .app-bg-danger-light { background-color: var(--app-danger-light) !important; color: var(--app-danger-text) !important; }
+    
+    .app-bg-smart-learning { background-color: var(--app-smart-learning) !important; color: var(--app-pure-white) !important; }
 
     /* BORDERS & RINGS */
     .app-border-muted { border-color: var(--app-border) !important; }
     .app-border-strong { border-color: var(--app-border-strong) !important; }
     .app-border-primary { border-color: var(--app-primary) !important; }
+    .app-border-smart-learning { border-color: var(--app-smart-learning) !important; }
 
     .app-ring-primary { --tw-ring-color: var(--app-primary-ring) !important; }
     .app-ring-success { --tw-ring-color: var(--app-success) !important; }
     .app-ring-warning { --tw-ring-color: var(--app-warning) !important; }
     .app-ring-danger { --tw-ring-color: var(--app-danger) !important; }
     .app-ring-subtle { --tw-ring-color: var(--app-border) !important; }
+    .app-ring-smart-learning { --tw-ring-color: var(--app-smart-learning) !important; }
 
     /* HOVER STATES */
     .app-hover-primary:hover { background-color: var(--app-primary-hover) !important; cursor: pointer; }
     .app-hover-highlight:hover { background-color: var(--app-bg-highlight) !important; }
+    .app-hover-smart-learning:hover { background-color: var(--app-smart-learning) !important; opacity: 0.9; cursor: pointer; }
 
     /* GRADIENT TEXT */
     .app-gradient-text {
@@ -394,7 +399,7 @@ const startLiquidGlassEngine = () => {
 
   const tick = (ts) => {
     const t = (ts - _startTs) / 1000;
-    const dt = Math.max(0.001, Math.min(0.05, (ts - _prevTs) / 1000));
+    // const dt = Math.max(0.001, Math.min(0.05, (ts - _prevTs) / 1000));
     _prevTs = ts;
 
     // scroll velocity (smoothed)
@@ -544,7 +549,22 @@ export const applyTheme = (theme, isColorblind) => {
     '--app-theme-base': p[27],
     '--app-theme-contrast': p[28],
 
-    '--app-special-gradient': p[29]
+    '--app-special-gradient': p[29],
+    
+    // --- SMART LEARNING PALETTE (New) ---
+    '--theme-50': p[30],
+    '--theme-100': p[31],
+    '--theme-200': p[32],
+    '--theme-300': p[33],
+    '--theme-400': p[34],
+    '--theme-500': p[35],
+    '--theme-600': p[36],
+    '--theme-900': p[37],
+    '--theme-glow': p[38],
+
+    // Backward Compat: Utility classes use "--app-smart-learning"
+    // We map this to the "Base" color (500)
+    '--app-smart-learning': p[35] 
   };
 
   Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));

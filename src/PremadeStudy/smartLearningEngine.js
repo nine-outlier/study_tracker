@@ -22,26 +22,17 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 const DEFAULTS = {
   pruning: {
-    // keep detailed events for N days, then prune
     maxEventAgeDays: 120,
-    // keep per-item rolling history entries for N days
     maxRecentEntryAgeDays: 90,
-    // hard caps
     eventMax: 2500,
-    // rolling history size per item/domain/concept
     recentMax: 40
   },
-
-  // BKT-ish concept mastery update (lightweight, but useful signal)
   bkt: {
     pLearn: 0.13,
     pGuess: 0.18,
     pSlip: 0.08
   },
-
-  // Selection behavior
   selection: {
-    // Study mode focuses on spaced repetition + stable progress
     study: {
       targetP: 0.75,
       band: 0.22,
@@ -54,7 +45,6 @@ const DEFAULTS = {
       speedPenalty: 0.10,
       recencyPenalty: 0.20
     },
-    // Smart Quiz/Test mode is more ruthless and pushes weaknesses and exam readiness
     test: {
       targetP: 0.68,
       band: 0.20,
@@ -62,11 +52,10 @@ const DEFAULTS = {
       minRepeatMinutes: 5,
       varietyPenalty: 0.22,
       overdueBoost: 0.18,
-      weaknessBoost: 0.45,
-      uncertaintyBoost: 0.22,
+      weaknessBoost: 0.50,
+      uncertaintyBoost: 0.35,
       speedPenalty: 0.16,
       recencyPenalty: 0.12,
-      // extra push: penalize "comfortable wins", emphasize weak domains + recent misses
       comfortPenalty: 0.18,
       recentMissBoost: 0.20
     }
@@ -74,7 +63,7 @@ const DEFAULTS = {
 };
 
 // -------------------------
-// Persistence (IndexedDB + localStorage fallback)
+// Persistence
 // -------------------------
 function supportsIDB() {
   return typeof window !== 'undefined' && 'indexedDB' in window;
@@ -82,40 +71,53 @@ function supportsIDB() {
 
 function openDb() {
   return new Promise((resolve, reject) => {
-    const req = window.indexedDB.open(IDB_DB, IDB_VERSION);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    try {
+      const req = window.indexedDB.open(IDB_DB, IDB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    } catch (e) {
+      reject(e);
+    }
   });
 }
 
 async function idbGet(key) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(IDB_STORE, 'readonly');
-    const store = tx.objectStore(IDB_STORE);
-    const req = store.get(key);
-    req.onsuccess = () => resolve(req.result ?? null);
-    req.onerror = () => reject(req.error);
-    tx.oncomplete = () => db.close();
-    tx.onerror = () => db.close();
-  });
+  try {
+    const db = await openDb();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const store = tx.objectStore(IDB_STORE);
+      const req = store.get(key);
+      req.onsuccess = () => resolve(req.result ?? null);
+      req.onerror = () => reject(req.error);
+      tx.oncomplete = () => db.close();
+      tx.onerror = () => db.close();
+    });
+  } catch (e) {
+    console.warn('IDB get failed', e);
+    return null;
+  }
 }
 
 async function idbSet(key, value) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    const store = tx.objectStore(IDB_STORE);
-    const req = store.put(value, key);
-    req.onsuccess = () => resolve(true);
-    req.onerror = () => reject(req.error);
-    tx.oncomplete = () => db.close();
-    tx.onerror = () => db.close();
-  });
+  try {
+    const db = await openDb();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      const store = tx.objectStore(IDB_STORE);
+      const req = store.put(value, key);
+      req.onsuccess = () => resolve(true);
+      req.onerror = () => reject(req.error);
+      tx.oncomplete = () => db.close();
+      tx.onerror = () => db.close();
+    });
+  } catch (e) {
+    console.warn('IDB set failed', e);
+  }
 }
 
 function lsKey(key) {
@@ -128,14 +130,14 @@ async function persist(key, state) {
     try {
       await idbSet(key, payload);
       return;
-    } catch {
-      // fall back
+    } catch (e) {
+      console.warn('Persist fallback to localStorage', e);
     }
   }
   try {
     localStorage.setItem(lsKey(key), JSON.stringify(payload));
-  } catch {
-    // ignore
+  } catch (e) {
+    console.warn('localStorage persist failed', e);
   }
 }
 
@@ -144,9 +146,7 @@ async function loadPersisted(key) {
     try {
       const v = await idbGet(key);
       if (v) return v;
-    } catch {
-      // fall back
-    }
+    } catch {}
   }
   try {
     const raw = localStorage.getItem(lsKey(key));
@@ -165,7 +165,6 @@ const sigmoid = (x) => 1 / (1 + Math.exp(-x));
 const logit = (p) => Math.log(p / (1 - p));
 
 function safeClone(obj) {
-  // structuredClone is not universal; keep safe & predictable
   try {
     if (typeof structuredClone === 'function') return structuredClone(obj);
   } catch {}
@@ -197,7 +196,6 @@ function bump(map, key, field, delta = 1) {
   return next;
 }
 
-// Exponential moving avg / variance (fast, stable, keeps “recent-ish” weighting)
 function updateEMA(prev, value, alpha = 0.18) {
   if (prev == null) return value;
   return prev + alpha * (value - prev);
@@ -222,19 +220,16 @@ function betaVar(a, b) {
 }
 
 // -------------------------
-// Domain detection (deck-specific and fast)
+// Domain detection
 // -------------------------
 function inferDomain(question) {
-  // Prefer explicit domain fields if you have them.
   const q = question || {};
   const direct =
     q.domain ?? q.domainId ?? q.domainName ?? q.domainTitle ?? q.category ?? q.section ?? null;
   if (direct) return String(direct);
 
-  // Fallback: use the first concept/tag as domain hint (if your data is structured that way).
   const concepts = Array.isArray(q.concepts) ? q.concepts : Array.isArray(q.tags) ? q.tags : [];
   if (concepts.length > 0) {
-    // If you use formats like "Domain 1: Networking", keep it as-is.
     return String(concepts[0]);
   }
 
@@ -242,12 +237,12 @@ function inferDomain(question) {
 }
 
 // -------------------------
-// Rolling history ring buffer utilities
+// Rolling history ring buffer
 // -------------------------
 function ensureRecent(obj, max) {
   if (!obj || typeof obj !== 'object') return { max, entries: [] };
   const m = Number(obj.max || max) || max;
-  const entries = Array.isArray(obj.entries) ? obj.entries.slice() : [];
+  const entries = Array.isArray(obj.entries) ? obj.entries : [];
   return { max: m, entries };
 }
 

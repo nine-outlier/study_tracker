@@ -3,11 +3,13 @@ import DataForm from '../DataForms/DataForm';
 import DomainForm from '../DataForms/DomainForm';
 import ReviewDataForm from '../DataForms/ReviewDataForm';
 import UncategorizedDataForm from '../DataForms/UncategorizedDataForm';
+import { PREMADE_DATA } from '../../config/appConfig';
 
 /**
  * DataEntryModal: Main modal for all data input, using tabs.
  * - Study Session tab removed
  * - Review tab no longer includes Study Sessions
+ * - Premade tab removed (moved to AddCertModal)
  */
 const DataEntryModal = ({
   isVisible,
@@ -22,6 +24,7 @@ const DataEntryModal = ({
   onReassignData,
   onClose,
   showToast,
+  isPremade = false, // New prop to control domain editing
 }) => {
   const [formType, setFormType] = useState('data');
   const [show, setShow] = useState(false);
@@ -29,7 +32,7 @@ const DataEntryModal = ({
   useEffect(() => {
     if (isVisible) {
       setShow(true);
-      setFormType('data'); // always start on Add Test
+      setFormType('data');
     }
   }, [isVisible]);
 
@@ -44,7 +47,10 @@ const DataEntryModal = ({
   const hasUncategorized =
     Array.isArray(uncategorizedEntries) && uncategorizedEntries.length > 0;
 
-  // Helper for tab classes
+  // Ensure we only lock domains for actual premade certifications defined in config
+  // This overrides any potential false positives from the isPremade prop or data
+  const isLockedPremade = PREMADE_DATA && PREMADE_DATA[activeCert];
+
   const getTabClass = (tabName) => {
     const isActive = formType === tabName;
     return `whitespace-nowrap px-3 py-2 rounded-md text-sm transition-colors ${
@@ -69,45 +75,23 @@ const DataEntryModal = ({
       >
         {/* Modal Tabs */}
         <div className="flex space-x-1 bg-slate-100 rounded-lg p-1 mb-6 dark:bg-gray-950 overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => setFormType('data')}
-            className={getTabClass('data')}
-          >
+          <button onClick={() => setFormType('data')} className={getTabClass('data')}>
             Add Test
           </button>
-
-          <button
-            type="button"
-            onClick={() => setFormType('domains')}
-            className={getTabClass('domains')}
-          >
+          <button onClick={() => setFormType('domains')} className={getTabClass('domains')}>
             Domains
           </button>
-
-          <button
-            type="button"
-            onClick={() => setFormType('edit')}
-            className={getTabClass('edit')}
-          >
+          <button onClick={() => setFormType('edit')} className={getTabClass('edit')}>
             Review
           </button>
-
-          {/* Show Uncategorized tab only if data exists */}
           {hasUncategorized && (
-            <button
-              type="button"
-              onClick={() => setFormType('uncategorized')}
-              className={`${getTabClass(
-                'uncategorized'
-              )} text-red-600 dark:text-red-400`}
-            >
+            <button onClick={() => setFormType('uncategorized')} className={`${getTabClass('uncategorized')} text-red-600 dark:text-red-400`}>
               Uncategorized
             </button>
           )}
         </div>
 
-        <div className="max-h-[70vh] overflow-y-auto pr-2">
+        <div className="max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
           {formType === 'data' && (
             <DataForm
               existingDomains={activeDomainNames}
@@ -116,25 +100,37 @@ const DataEntryModal = ({
               showToast={showToast}
             />
           )}
-
+          
           {formType === 'domains' && (
-            <DomainForm
-              existingDomains={activeDomainNames}
-              onAddDomain={onAddDomain}
-              onDeleteDomain={onDeleteDomain}
-              showToast={showToast}
-            />
+            isLockedPremade ? (
+              <div className="flex flex-col items-center justify-center h-48 text-center px-4 animate-fadeIn">
+                <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-gray-800 flex items-center justify-center mb-3">
+                  <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-1">Managed Certification</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">
+                  Domains for this certification are managed automatically and cannot be modified.
+                </p>
+              </div>
+            ) : (
+              <DomainForm
+                existingDomains={activeDomainNames}
+                onAddDomain={onAddDomain}
+                onDeleteDomain={onDeleteDomain}
+                showToast={showToast}
+              />
+            )
           )}
 
           {formType === 'edit' && (
             <ReviewDataForm
               certData={certData}
               onDeleteTest={onDeleteTest}
-              // ✅ explicitly hide/remove Study Sessions in Review
               hideStudySessions={true}
             />
           )}
-
           {formType === 'uncategorized' && (
             <UncategorizedDataForm
               uncategorizedEntries={uncategorizedEntries}

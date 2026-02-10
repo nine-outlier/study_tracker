@@ -1,4 +1,3 @@
-// DomainOverview.jsx
 import React from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ReferenceLine, Label, PieChart, Pie } from 'recharts';
 import { config } from '../../config/appConfig.js';
@@ -28,6 +27,49 @@ const DomainOverview = ({ domainData, masteryData, isWeighted, appSettings, rank
     label,
     color: rankingEngine ? rankingEngine.getRankColor(label) : 'var(--chart-1)'
   }));
+
+  // Custom label component to display percentage number for small bars
+  const CustomBarLabel = (props) => {
+    const { x, y, width, height, value } = props;
+
+    // If the value is 10% or less, show the number explicitly
+    if (value <= 10) {
+      // Calculate the vertical center (50%) of the chart area
+      // 'height' is the pixel height of the bar corresponding to 'value'
+      // 'y' is the top pixel coordinate of the bar
+      // The bottom of the chart (0%) is at (y + height)
+      // We want to position the text at 50% of the total chart height
+      
+      let yPos;
+
+      if (value > 0) {
+        // Calculate pixels per percentage unit: scale = height / value
+        // Distance to 50% mark from bottom = 50 * scale
+        // yPos = Bottom_Y - Distance_to_50%
+        yPos = (y + height) - (50 * (height / value));
+      } else {
+        // If value is 0, height is 0. The y coordinate is at the bottom (0 line).
+        // The chart height is roughly 200px based on the container.
+        // We'll place it roughly in the middle (~100px up from the bottom y).
+        yPos = y - 100; 
+      }
+
+      return (
+        <text 
+          x={x + width / 2} 
+          y={yPos} 
+          fill="var(--app-text-muted)" 
+          textAnchor="middle" 
+          dominantBaseline="middle"
+          fontSize={24}
+          fontWeight="800"
+        >
+          {value}%
+        </text>
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="app-bg-surface rounded-xl shadow-sm border app-border-muted p-4 relative flex flex-col">
@@ -80,7 +122,7 @@ const DomainOverview = ({ domainData, masteryData, isWeighted, appSettings, rank
 
       <div className="w-full h-[220px] flex-grow">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={domainData} margin={{ top: 5, right: 0, left: -25, bottom: 0 }}>
+          <BarChart data={domainData} margin={{ top: 20, right: 0, left: -25, bottom: 0 }}>
             <ChartGradientDefs />
             <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} strokeOpacity={0.5} vertical={false} />
             <XAxis
@@ -98,7 +140,7 @@ const DomainOverview = ({ domainData, masteryData, isWeighted, appSettings, rank
               contentStyle={{ backgroundColor: 'var(--app-bg-surface)', borderColor: 'var(--app-primary)', color: 'var(--app-text-main)' }}
               itemStyle={{ color: 'var(--app-text-main)' }}
             />
-            <Bar dataKey="accuracy" radius={[3, 3, 0, 0]} maxBarSize={50}>
+            <Bar dataKey="accuracy" radius={[3, 3, 0, 0]} maxBarSize={50} label={<CustomBarLabel />}>
               {domainData.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}

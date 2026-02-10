@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import StatsCard from '../UI/StatsCard.jsx';
 import WeightedToggle from '../UI/WeightedToggle.jsx';
 import DomainChart from '../charts/DomainChart.jsx';
@@ -19,11 +19,11 @@ const OverviewSection = ({
   trendFilter,
   setTrendFilter,
   overviewConfig,
-  setOverviewConfig,
+  // setOverviewConfig is no longer needed here as settings moved to modal,
+  // but kept in prop signature to avoid breakage if parent passes it.
   rankingEngine
 }) => {
-  const [showCustomize, setShowCustomize] = useState(false);
-
+  
   // Safety: ensure all keys exist even if older saved settings are missing fields
   const viewConfig = useMemo(() => {
     const fallback = DEFAULT_SETTINGS?.overviewConfig || {};
@@ -48,13 +48,6 @@ const OverviewSection = ({
   const reviewColor = rankingEngine ? rankingEngine.getReviewRankClass(reviewCount, metrics.totalTopics) : 'app-text-chart-1';
   const masteredColor = rankingEngine ? rankingEngine.getMasteredRankClass(currentMasteredCount, metrics.totalTopics) : 'app-text-chart-1';
 
-  const toggleConfig = (key) => {
-    setOverviewConfig(prev => ({
-      ...(prev || {}),
-      [key]: !(prev || {})[key]
-    }));
-  };
-
   const isCombined = !!viewConfig.combineCharts && !!viewConfig.showDomain && !!viewConfig.showMastery;
   const historyList = trendData ? [...trendData].reverse() : [];
   const renderHistoryAtTop = !!viewConfig.showHistory && !!viewConfig.showDomain;
@@ -71,78 +64,10 @@ const OverviewSection = ({
 
   return (
     <div className="space-y-6">
-      {/* Overview controls: Customize LEFT, Weighted toggle RIGHT */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 -mt-4">
-        <div className="self-start">
-          <button
-            onClick={() => setShowCustomize(!showCustomize)}
-            className="text-sm font-medium transition-colors app-text-primary hover:opacity-80"
-          >
-            {showCustomize ? 'Done' : 'Customize View'}
-          </button>
-        </div>
-
-        <div className="self-end sm:self-auto">
-          {weightedToggleNode}
-        </div>
+      {/* Overview controls: Weighted toggle RIGHT */}
+      <div className="flex justify-end -mt-4 mb-4">
+        {weightedToggleNode}
       </div>
-
-      {showCustomize && (
-        <div className="p-4 rounded-lg animate-fadeIn border app-bg-surface app-border-muted shadow-sm">
-          <h3 className="text-sm font-bold mb-3 uppercase tracking-wide app-text-main">
-            Dashboard Configuration
-          </h3>
-
-          <div className="flex flex-wrap gap-10">
-            <div className="space-y-2">
-              <p className="text-xs font-bold uppercase app-text-muted">Charts</p>
-
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={!!viewConfig.showDomain}
-                  onChange={() => toggleConfig('showDomain')}
-                  className="form-checkbox h-4 w-4 rounded app-border app-text-primary"
-                />
-                <span className="text-sm app-text-main">Show Domain Performance</span>
-              </label>
-
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={!!viewConfig.showMastery}
-                  onChange={() => toggleConfig('showMastery')}
-                  className="form-checkbox h-4 w-4 rounded app-border app-text-primary"
-                />
-                <span className="text-sm app-text-main">Show Mastery Distribution</span>
-              </label>
-
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={!!viewConfig.combineCharts}
-                  onChange={() => toggleConfig('combineCharts')}
-                  disabled={!viewConfig.showDomain || !viewConfig.showMastery}
-                  className="form-checkbox h-4 w-4 rounded disabled:opacity-50 app-border app-text-primary"
-                />
-                <span className={`text-sm ${(!viewConfig.showDomain || !viewConfig.showMastery) ? 'app-text-muted' : 'app-text-main'}`}>
-                  Combine Charts (Compact)
-                </span>
-              </label>
-
-              <label className="flex items-center space-x-2 cursor-pointer pt-1">
-                <input
-                  type="checkbox"
-                  checked={!!viewConfig.showHistory}
-                  onChange={() => toggleConfig('showHistory')}
-                  className="form-checkbox h-4 w-4 rounded app-border app-text-primary"
-                />
-                <span className="text-sm app-text-main">Show Performance History</span>
-              </label>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatsCard
