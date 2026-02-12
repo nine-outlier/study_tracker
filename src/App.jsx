@@ -30,7 +30,6 @@ import AddCertModal from './components/Modals/AddCertModal.jsx';
 import OnboardingModal from './components/Modals/OnboardingModal.jsx';
 import LoadingScreen from './components/UI/LoadingScreen.jsx';
 import SettingsFab from './components/UI/SettingsFab.jsx';
-import ArcadeGameRoot from './components/Arcade/ArcadeGameRoot.jsx';
 import TrophyIcon from './components/UI/TrophyIcon.jsx';
 import ThemeEffects from './components/UI/ThemeEffects.jsx';
 import OverviewSection from './components/Sections/OverviewSection.jsx';
@@ -285,7 +284,6 @@ const StudyTrackerContent = () => {
   const [isExitingLoad, setIsExitingLoad] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Initializing Application...');
 
-  const [isArcadeMode, setIsArcadeMode] = useState(false);
   const [transitionOpacity, setTransitionOpacity] = useState(0);
 
   const [activeTab, setActiveTab] = useState('overview');
@@ -873,22 +871,6 @@ const StudyTrackerContent = () => {
     setTransitionOpacity(progress);
   };
 
-  const handleEnterArcade = () => {
-    setTransitionOpacity(1);
-    setTimeout(() => {
-      setIsArcadeMode(true);
-      setTimeout(() => setTransitionOpacity(0), 100);
-    }, 800);
-  };
-
-  const handleExitArcade = () => {
-    setTransitionOpacity(1);
-    setTimeout(() => {
-      setIsArcadeMode(false);
-      setTimeout(() => setTransitionOpacity(0), 100);
-    }, 800);
-  };
-
   const metrics = useCertificationMetrics(examData[activeCert], trendFilter, weights, activeSettings);
   const hasData = activeCert && metrics && (
     metrics.practiceTestsCount > 0 ||
@@ -949,18 +931,6 @@ const StudyTrackerContent = () => {
           />
         </Suspense>
       </div>
-    );
-  }
-
-  if (isArcadeMode) {
-    return (
-      <>
-        <div
-          className="fixed inset-0 z-[9999] pointer-events-none transition-all duration-75 ease-out"
-          style={overlayStyle}
-        />
-        <ArcadeGameRoot onExit={handleExitArcade} />
-      </>
     );
   }
 
@@ -1068,7 +1038,7 @@ const StudyTrackerContent = () => {
                 </h1>
                 <TrophyIcon level={'RED'} className="w-6 h-6 ml-2 app-gradient-text" />
               </div>
-              <p className="text-xs app-text-muted font-mono mt-1">Version 1.2.0</p>
+              <p className="text-xs app-text-muted font-mono mt-1">Version 1.2.1</p>
             </div>
 
             <div className="flex flex-col items-end gap-1 self-start">
@@ -1162,7 +1132,6 @@ const StudyTrackerContent = () => {
 
       <SettingsFab
         onOpenSettings={() => setShowSettingsModal(true)}
-        onEnterArcade={handleEnterArcade}
         onHoldProgress={handleHoldProgress}
       />
 

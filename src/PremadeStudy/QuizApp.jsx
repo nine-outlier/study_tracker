@@ -1,13 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-
-// --- MOCKED DEPENDENCIES (Inlined for single-file portability) ---
-
-// Mock useData hook since we don't have the external provider
-const useData = () => {
-  return {
-    dispatch: (action) => console.log('Dispatching action (Mock):', action)
-  };
-};
+import { useData } from "../state/DataProvider";
 
 // Helper to resolve domain metadata (code/name)
 const getDomainMeta = (identifier, domainMap = {}) => {
@@ -1463,9 +1455,9 @@ const QuizApp = ({
 
                 <span
                   className={`text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded-md border ${
-                      isSmartMode 
-                      ? 'bg-blue-900/50 text-blue-200 border-blue-500/30'
-                      : 'bg-[var(--app-bg-highlight)] text-[var(--app-text-muted)] border-[var(--app-border)]'
+                    isSmartMode 
+                    ? 'bg-blue-900/50 text-blue-200 border-blue-500/30'
+                    : 'bg-[var(--app-bg-highlight)] text-[var(--app-text-muted)] border-[var(--app-border)]'
                   }`}
                   title={domainMeta.name}
                 >

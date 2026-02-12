@@ -128,10 +128,9 @@ const Icons = {
 // Expanded Theme Options based on provided palettes
 const THEME_OPTIONS = [
   { id: 'light', name: 'Light', color: '#f8fafc', desc: 'Crisp & Professional', locked: false },
-  { id: 'midnight', name: 'Midnight', color: '#020617', desc: 'Deep Focus Dark', locked: false },
-  { id: 'red', name: 'Red', color: '#fff1f2', desc: 'Warm & Vibrant', locked: true },
-  { id: 'dark', name: 'Dark', color: '#000000', desc: 'High Contrast Dark', locked: true },
-  { id: 'paper', name: 'Paper', color: '#fdfbf7', desc: 'Soft Academic', locked: true },
+  { id: 'Dark', name: 'Dark', color: '#020617', desc: 'Deep Focus', locked: false },
+  { id: 'Rose', name: 'Rose', color: '#fff1f2', desc: 'Warm & Vibrant', locked: true },
+  { id: 'Paper', name: 'Paper', color: '#fdfbf7', desc: 'Soft Academic', locked: true },
 ];
 
 const ToggleRow = ({ id, title, desc, icon, checked, onChange, disabled }) => (

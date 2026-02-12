@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { SettingsIcon } from './Icons.jsx';
 
-const SettingsFab = ({ onOpenSettings, onEnterArcade, onHoldProgress }) => {
+const SettingsFab = ({ onOpenSettings, onHoldProgress }) => {
   const requestRef = useRef(null);
   const startTimeRef = useRef(null);
   const [isHolding, setIsHolding] = useState(false);
@@ -27,8 +27,7 @@ const SettingsFab = ({ onOpenSettings, onEnterArcade, onHoldProgress }) => {
       requestRef.current = requestAnimationFrame(animateHold);
     } else {
       setIsHolding(false);
-      if (navigator.vibrate) navigator.vibrate(200); 
-      onEnterArcade();
+      if (navigator.vibrate) navigator.vibrate(200);
     }
   };
 
